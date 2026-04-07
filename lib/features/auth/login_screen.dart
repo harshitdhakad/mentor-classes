@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/navigation/page_transitions.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/mentor_footer.dart';
 import '../../models/user_model.dart';
+import '../shell/main_shell_screen.dart';
 import 'auth_service.dart';
 
 /// Material 3 login with role selector: Admin, Teacher, or Student.
@@ -17,6 +19,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   UserRole _role = UserRole.student;
+  int _studentClass = StudentClassLevels.min;
   final _emailCtrl = TextEditingController();
   final _rollCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
@@ -52,12 +55,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       } else {
         await ref.read(authProvider.notifier).signInStudent(
               rollNumber: _rollCtrl.text,
+              classLevel: _studentClass,
               password: _passwordCtrl.text,
             );
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Welcome, ${ref.read(authProvider)?.displayName ?? ''}')),
+        );
+        Navigator.of(context).pushReplacement(
+          CustomPageTransitions.fadeScale(const MainShellScreen()),
         );
       }
     } on AuthException catch (e) {
@@ -113,6 +120,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           staffFormKey: _staffFormKey,
                           studentFormKey: _studentFormKey,
                           onSubmit: _submit,
+                          selectedClass: _studentClass,
+                          onStudentClassChanged: (value) {
+                            if (value != null) {
+                              setState(() => _studentClass = value);
+                            }
+                          },
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -209,6 +222,8 @@ class _LoginPanel extends StatelessWidget {
     required this.staffFormKey,
     required this.studentFormKey,
     required this.onSubmit,
+    required this.selectedClass,
+    required this.onStudentClassChanged,
   });
 
   final UserRole role;
@@ -222,6 +237,8 @@ class _LoginPanel extends StatelessWidget {
   final GlobalKey<FormState> staffFormKey;
   final GlobalKey<FormState> studentFormKey;
   final VoidCallback onSubmit;
+  final int selectedClass;
+  final ValueChanged<int?> onStudentClassChanged;
 
   bool get _isStaff => role == UserRole.admin || role == UserRole.teacher;
 
@@ -363,6 +380,31 @@ class _LoginPanel extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 14),
+                          DropdownButtonFormField<int>(
+                            initialValue: selectedClass,
+                            decoration: const InputDecoration(
+                              labelText: 'Class',
+                              prefixIcon: Icon(Icons.school_outlined),
+                            ),
+                            items: [
+                              for (var c = StudentClassLevels.min;
+                                  c <= StudentClassLevels.max;
+                                  c++)
+                                DropdownMenuItem(
+                                  value: c,
+                                  child: Text('Class $c'),
+                                ),
+                            ],
+                            onChanged: onStudentClassChanged,
+                            validator: (value) {
+                              if (value == null ||
+                                  !StudentClassLevels.isValid(value)) {
+                                return 'Select your class level';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
                           TextFormField(
                             controller: rollCtrl,
                             textInputAction: TextInputAction.next,

@@ -8,11 +8,17 @@ class StudentListItem {
     required this.roll,
     required this.name,
     required this.docId,
+    this.totalFees = 0.0,
+    this.remainingFees = 0.0,
   });
 
   final String roll;
   final String name;
   final String docId;
+  final double totalFees; // Total fees amount
+  final double remainingFees; // Dues/remaining fees
+
+  double get paidFees => (totalFees - remainingFees).clamp(0.0, totalFees);
 }
 
 /// One row on the leaderboard (NG = not given / absent for test).
@@ -45,8 +51,124 @@ class ErpRepository {
   CollectionReference<Map<String, dynamic>> get _announcements => _db.collection('announcements');
   CollectionReference<Map<String, dynamic>> get _testSeries => _db.collection('test_series');
 
-  DocumentReference<Map<String, dynamic>> get _weeklyScheduleDoc =>
-      _db.collection('config').doc('weekly_schedule');
+  CollectionReference<Map<String, dynamic>> get _schedules => _db.collection('schedules');
+
+  DocumentReference<Map<String, dynamic>> weeklyScheduleDoc(int classLevel) =>
+      _schedules.doc('$classLevel');
+
+  CollectionReference<Map<String, dynamic>> get _classSchedules => _db.collection('class_schedules');
+  CollectionReference<Map<String, dynamic>> get _testSchedules => _db.collection('test_schedules');
+  /// Get updates by category
+  Stream<QuerySnapshot<Map<String, dynamic>>> getUpdatesByCategory(String category, int classLevel) {
+    return _announcements
+        .where('type', isEqualTo: category)
+        .where('classLevel', isEqualTo: classLevel)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
+  /// Add class schedule
+  Future<void> addClassSchedule({
+    required int classLevel,
+    required String subject,
+    required String time,
+    required String teacher,
+    required String room,
+  }) async {
+    await _classSchedules.add({
+      'classLevel': classLevel,
+      'subject': subject,
+      'time': time,
+      'teacher': teacher,
+      'room': room,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Get class schedules stream
+  Stream<QuerySnapshot<Map<String, dynamic>>> getClassSchedules(int classLevel) {
+    return _classSchedules.where('classLevel', isEqualTo: classLevel).snapshots();
+  }
+
+  /// Schedule test
+  Future<void> scheduleTest({
+    required int classLevel,
+    required String testName,
+    required String date,
+    required String time,
+    required String syllabus,
+    required double maxMarks,
+  }) async {
+    await _testSchedules.add({
+      'classLevel': classLevel,
+      'testName': testName,
+      'date': date,
+      'time': time,
+      'syllabus': syllabus,
+      'maxMarks': maxMarks,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    // Send notification
+    sendParentNotification(
+      title: 'New Test Scheduled',
+      body: '$testName for Class $classLevel on $date at $time',
+      meta: {'class': '$classLevel', 'type': 'test'},
+    );
+  }
+
+  /// Get test schedules stream
+  Stream<QuerySnapshot<Map<String, dynamic>>> getTestSchedules(int classLevel) {
+    return _testSchedules.where('classLevel', isEqualTo: classLevel).snapshots();
+  }
+
+  /// Add holiday
+  Future<void> addHoliday({
+    required int classLevel,
+    required String date,
+    required String message,
+  }) async {
+    await _holidays.add({
+      'classLevel': classLevel,
+      'date': date,
+      'message': message,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    sendParentNotification(
+      title: 'Holiday Declared',
+      body: message,
+      meta: {'class': '$classLevel', 'date': date, 'type': 'holiday'},
+    );
+  }
+
+  /// Get holidays stream
+  Stream<QuerySnapshot<Map<String, dynamic>>> getHolidays(int classLevel) {
+    return _holidays.where('classLevel', isEqualTo: classLevel).snapshots();
+  }
+
+  /// Update student fees (Admin/Teacher only). Calculates remaining_fees automatically.
+  Future<void> updateStudentFees({
+    required String studentDocId,
+    required double totalFees,
+    required double paidAmount,
+  }) async {
+    final remainingFees = (totalFees - paidAmount).clamp(0.0, totalFees);
+    await _students.doc(studentDocId).set(
+      {
+        'total_fees': totalFees,
+        'remaining_fees': remainingFees,
+        'fees_updated_at': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
+  /// Fetch single student with all fees data (for teacher detail view).
+  Future<Map<String, dynamic>?> getStudentWithFees(String studentDocId) async {
+    final doc = await _students.doc(studentDocId).get();
+    return doc.data();
+  }
 
   Future<List<StudentListItem>> fetchStudentsByClass(int classLevel) async {
     final snap = await _students.where('studentClass', isEqualTo: classLevel).get();
@@ -60,7 +182,24 @@ class ErpRepository {
     final roll = (data['rollNumber'] ?? data['Roll Number'] ?? doc.id).toString();
     final name = (data['name'] ?? data['Name'] ?? 'Student').toString();
     if (roll.isEmpty) return null;
-    return StudentListItem(roll: roll, name: name, docId: doc.id);
+    
+    final totalFees = _parseDouble(data['total_fees'] ?? data['totalFees'] ?? 0);
+    final remainingFees = _parseDouble(data['remaining_fees'] ?? data['remainingFees'] ?? totalFees);
+    
+    return StudentListItem(
+      roll: roll,
+      name: name,
+      docId: doc.id,
+      totalFees: totalFees,
+      remainingFees: remainingFees,
+    );
+  }
+
+  static double _parseDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
   }
 
   Future<Map<String, dynamic>?> getAttendanceForDay(int classLevel, DateTime date) async {
@@ -277,12 +416,12 @@ class ErpRepository {
     return keys[d.weekday - 1];
   }
 
-  Stream<DocumentSnapshot<Map<String, dynamic>>> watchWeeklySchedule() {
-    return _weeklyScheduleDoc.snapshots();
+  Stream<DocumentSnapshot<Map<String, dynamic>>> watchWeeklySchedule(int classLevel) {
+    return weeklyScheduleDoc(classLevel).snapshots();
   }
 
-  Future<void> saveWeeklySchedule(Map<String, dynamic> daysPayload) async {
-    await _weeklyScheduleDoc.set(
+  Future<void> saveWeeklySchedule(int classLevel, Map<String, dynamic> daysPayload) async {
+    await weeklyScheduleDoc(classLevel).set(
       {
         'days': daysPayload,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -291,8 +430,8 @@ class ErpRepository {
     );
   }
 
-  Future<Map<String, dynamic>?> getWeeklyScheduleDays() async {
-    final s = await _weeklyScheduleDoc.get();
+  Future<Map<String, dynamic>?> getWeeklyScheduleDays(int classLevel) async {
+    final s = await weeklyScheduleDoc(classLevel).get();
     final data = s.data();
     if (data == null) return null;
     final days = data['days'];

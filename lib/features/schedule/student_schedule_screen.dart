@@ -8,14 +8,83 @@ import '../../core/widgets/mentor_glass_card.dart';
 import '../../data/erp_providers.dart';
 import '../../data/erp_repository.dart';
 
+const _dayOrder = [
+  ('monday', 'Monday'),
+  ('tuesday', 'Tuesday'),
+  ('wednesday', 'Wednesday'),
+  ('thursday', 'Thursday'),
+  ('friday', 'Friday'),
+  ('saturday', 'Saturday'),
+  ('sunday', 'Sunday'),
+];
+
 /// Student/Parent: read-only view of today's classes and what to bring.
 class StudentScheduleScreen extends ConsumerWidget {
   const StudentScheduleScreen({super.key});
 
+  void _showFullWeekDialog(BuildContext context, Map<String, dynamic>? days) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Full Week Schedule', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: _dayOrder.map((day) {
+              final dayKey = day.$1;
+              final dayName = day.$2;
+              final slots = days?[dayKey];
+              return ExpansionTile(
+                title: Text(dayName, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                children: slots is List && slots.isNotEmpty
+                    ? slots.asMap().entries.map((e) {
+                        final i = e.key;
+                        final raw = e.value;
+                        if (raw is! Map) return const SizedBox.shrink();
+                        final m = Map<String, dynamic>.from(raw.map((k, v) => MapEntry('$k', v)));
+                        final subject = m['subject']?.toString() ?? '—';
+                        final start = m['start']?.toString() ?? '';
+                        final end = m['end']?.toString() ?? '';
+                        final bring = m['bring']?.toString() ?? '';
+                        return ListTile(
+                          title: Text('Period ${i + 1} · $subject', style: GoogleFonts.poppins(fontSize: 14)),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (start.isNotEmpty || end.isNotEmpty)
+                                Text('$start – $end', style: GoogleFonts.poppins(fontSize: 12)),
+                              if (bring.isNotEmpty)
+                                Text('Bring: $bring', style: GoogleFonts.poppins(fontSize: 12)),
+                            ],
+                          ),
+                        );
+                      }).toList()
+                    : [const ListTile(title: Text('No classes'))],
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Close', style: GoogleFonts.poppins()),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authProvider);
+    if (user == null || user.studentClass == null) {
+      return const Center(child: Text('No class assigned'));
+    }
+    final classLevel = user.studentClass!;
+
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: ref.read(erpRepositoryProvider).watchWeeklySchedule(),
+      stream: ref.read(erpRepositoryProvider).watchWeeklySchedule(classLevel),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
           return const Center(child: CircularProgressIndicator());
@@ -57,6 +126,12 @@ class StudentScheduleScreen extends ConsumerWidget {
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => _showFullWeekDialog(context, days),
+              icon: const Icon(Icons.calendar_view_week),
+              label: Text('View Full Week', style: GoogleFonts.poppins()),
             ),
             const SizedBox(height: 16),
             if (slots is! List || slots.isEmpty)

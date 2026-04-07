@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/app_config.dart';
 import '../../models/user_model.dart';
@@ -52,9 +55,10 @@ class AuthService {
     );
   }
 
-  /// Validates roll number + password against Firestore `students` documents.
+  /// Validates roll number + class + password against Firestore `students` documents.
   Future<AppUser> loginStudent({
     required String rollNumber,
+    required int classLevel,
     required String password,
   }) async {
     final roll = rollNumber.trim();
@@ -62,9 +66,9 @@ class AuthService {
       throw AuthException('Please enter your roll number.');
     }
 
-    final doc = await _findStudentDocument(roll);
+    final doc = await _findStudentDocument(roll, classLevel);
     if (doc == null) {
-      throw AuthException('Roll number not found.');
+      throw AuthException('Student with this roll and class not found.');
     }
 
     final data = doc.data() ?? {};
@@ -88,12 +92,17 @@ class AuthService {
 
   Future<DocumentSnapshot<Map<String, dynamic>>?> _findStudentDocument(
     String roll,
+    int classLevel,
   ) async {
     Future<QuerySnapshot<Map<String, dynamic>>> q(
       String field,
       Object value,
-    ) =>
-        _students.where(field, isEqualTo: value).limit(1).get();
+    ) async =>
+        _students
+            .where(field, isEqualTo: value)
+            .where('studentClass', isEqualTo: classLevel)
+            .limit(1)
+            .get();
 
     final byRollNumber = await q('rollNumber', roll);
     if (byRollNumber.docs.isNotEmpty) return byRollNumber.docs.first;
@@ -115,7 +124,7 @@ class AuthService {
       if (asInt2.docs.isNotEmpty) return asInt2.docs.first;
     }
 
-    final direct = await _students.doc(roll).get();
+    final direct = await _students.doc('${classLevel}_$roll').get();
     if (direct.exists) return direct;
 
     return null;
@@ -156,6 +165,30 @@ class AuthService {
     if (n >= StudentClassLevels.min && n <= StudentClassLevels.max) return n;
     return null;
   }
+
+  static const String _prefsKey = 'mentor_classes_user';
+
+  static Future<void> persistUser(AppUser? user) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (user == null) {
+      await prefs.remove(_prefsKey);
+      return;
+    }
+    await prefs.setString(_prefsKey, jsonEncode(user.toJson()));
+  }
+
+  static Future<AppUser?> restoreSavedUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_prefsKey);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      return AppUser.fromJson(data);
+    } catch (_) {
+      await prefs.remove(_prefsKey);
+      return null;
+    }
+  }
 }
 
 // ——— Riverpod ———
@@ -174,18 +207,35 @@ class AuthNotifier extends Notifier<AppUser?> {
     required String password,
   }) async {
     final service = ref.read(authServiceProvider);
-    state = await service.loginStaff(role: role, email: email, password: password);
+    final user = await service.loginStaff(role: role, email: email, password: password);
+    state = user;
+    await AuthService.persistUser(user);
   }
 
   Future<void> signInStudent({
     required String rollNumber,
+    required int classLevel,
     required String password,
   }) async {
     final service = ref.read(authServiceProvider);
-    state = await service.loginStudent(rollNumber: rollNumber, password: password);
+    final user = await service.loginStudent(
+      rollNumber: rollNumber,
+      classLevel: classLevel,
+      password: password,
+    );
+    state = user;
+    await AuthService.persistUser(user);
   }
 
-  void signOut() => state = null;
+  Future<void> restoreSession(AppUser user) async {
+    state = user;
+    await AuthService.persistUser(user);
+  }
+
+  Future<void> signOut() async {
+    state = null;
+    await AuthService.persistUser(null);
+  }
 }
 
 final authProvider = NotifierProvider<AuthNotifier, AppUser?>(AuthNotifier.new);

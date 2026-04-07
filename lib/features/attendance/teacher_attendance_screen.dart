@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../data/erp_providers.dart';
 import '../../data/erp_repository.dart';
 import '../../models/user_model.dart';
 import '../auth/auth_service.dart';
+import '../student/student_detail_screen.dart';
 
 /// Teacher/Admin: mark attendance by class with holiday option and mark-all-present.
 class TeacherAttendanceScreen extends ConsumerStatefulWidget {
@@ -26,6 +28,7 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
   List<StudentListItem> _students = [];
   bool _loading = true;
   bool _saving = false;
+  bool _attendanceJustSaved = false;
 
   @override
   void initState() {
@@ -40,7 +43,10 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _attendanceJustSaved = false;
+    });
     final repo = ref.read(erpRepositoryProvider);
     try {
       final list = await repo.fetchStudentsByClass(_classLevel);
@@ -82,8 +88,9 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
             savedByEmail: user.email!,
           );
       if (mounted) {
+        setState(() => _attendanceJustSaved = true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Attendance saved.')),
+          const SnackBar(content: Text('Attendance saved. Share with group?')),
         );
       }
     } catch (e) {
@@ -94,6 +101,63 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  String _generateAttendanceText() {
+    final df = DateFormat('d MMMM yyyy');
+    final dateStr = df.format(_date);
+    final presentList = <String>[];
+    final absentList = <String>[];
+
+    for (final s in _students) {
+      if (_present[s.roll] == true) {
+        presentList.add('${s.roll} - ${s.name}');
+      } else {
+        absentList.add('${s.roll} - ${s.name}');
+      }
+    }
+
+    String text = '📋 *Class $_classLevel Attendance - $dateStr*\n';
+    text += '=' * 40 + '\n\n';
+
+    if (presentList.isNotEmpty) {
+      text += '✅ *Present (${presentList.length}):*\n';
+      text += presentList.join('\n');
+      text += '\n\n';
+    }
+
+    if (absentList.isNotEmpty) {
+      text += '❌ *Absent (${absentList.length}):*\n';
+      text += absentList.join('\n');
+    } else {
+      text += '✨ *All students present!*';
+    }
+
+    return text;
+  }
+
+  Future<void> _shareToWhatsApp() async {
+    final text = _generateAttendanceText();
+    final encoded = Uri.encodeComponent(text);
+    final whatsappUrl = 'https://wa.me/?text=$encoded';
+
+    try {
+      if (await canLaunchUrl(Uri.parse(whatsappUrl))) {
+        await launchUrl(Uri.parse(whatsappUrl), mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('WhatsApp not installed')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error launching WhatsApp: $e')),
+        );
+      }
     }
   }
 
@@ -232,13 +296,26 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
                                 borderRadius: BorderRadius.circular(12),
                                 side: BorderSide(color: Colors.grey.shade200),
                               ),
-                              child: SwitchListTile(
-                                title: Text(s.name, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-                                subtitle: Text('Roll ${s.roll}', style: GoogleFonts.poppins(fontSize: 13)),
-                                value: present,
-                                activeThumbColor: Colors.green.shade700,
-                                inactiveThumbColor: Colors.red.shade300,
-                                onChanged: (v) => setState(() => _present[s.roll] = v),
+                              child: InkWell(
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => StudentDetailScreen(
+                                        studentDocId: s.docId,
+                                        studentName: s.name,
+                                        studentRoll: s.roll,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: SwitchListTile(
+                                  title: Text(s.name, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                                  subtitle: Text('Roll ${s.roll}', style: GoogleFonts.poppins(fontSize: 13)),
+                                  value: present,
+                                  activeThumbColor: Colors.green.shade700,
+                                  inactiveThumbColor: Colors.red.shade300,
+                                  onChanged: (v) => setState(() => _present[s.roll] = v),
+                                ),
                               ),
                             );
                           },
@@ -246,15 +323,28 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
         ),
         Padding(
           padding: const EdgeInsets.all(20),
-          child: FilledButton(
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : Text('Save attendance', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FilledButton(
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text('Save attendance', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+              ),
+              if (_attendanceJustSaved) ...[
+                const SizedBox(height: 12),
+                FilledButton.tonalIcon(
+                  onPressed: _shareToWhatsApp,
+                  icon: const Icon(Icons.share),
+                  label: const Text('Share to WhatsApp'),
+                ),
+              ],
+            ],
           ),
         ),
       ],

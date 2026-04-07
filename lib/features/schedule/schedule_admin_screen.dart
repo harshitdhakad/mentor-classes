@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/mentor_glass_card.dart';
 import '../../data/erp_providers.dart';
+import '../../models/user_model.dart';
 
 const _dayOrder = [
   ('monday', 'Monday'),
@@ -56,6 +57,7 @@ class _ScheduleAdminScreenState extends ConsumerState<ScheduleAdminScreen> {
   final Map<String, List<_SlotFields>> _days = {};
   bool _loading = true;
   bool _saving = false;
+  int _selectedClass = 9; // Default to class 9
 
   @override
   void initState() {
@@ -78,7 +80,7 @@ class _ScheduleAdminScreenState extends ConsumerState<ScheduleAdminScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final raw = await ref.read(erpRepositoryProvider).getWeeklyScheduleDays();
+    final raw = await ref.read(erpRepositoryProvider).getWeeklyScheduleDays(_selectedClass);
     if (raw != null && mounted) {
       for (final d in _dayOrder) {
         final key = d.$1;
@@ -106,7 +108,7 @@ class _ScheduleAdminScreenState extends ConsumerState<ScheduleAdminScreen> {
       for (final d in _dayOrder) {
         payload[d.$1] = _days[d.$1]!.map((s) => s.toMap()).toList();
       }
-      await ref.read(erpRepositoryProvider).saveWeeklySchedule(payload);
+      await ref.read(erpRepositoryProvider).saveWeeklySchedule(_selectedClass, payload);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Weekly schedule saved.')),
@@ -130,6 +132,48 @@ class _ScheduleAdminScreenState extends ConsumerState<ScheduleAdminScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // Class selector
+        Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Select Class',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppTheme.deepBlue),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<int>(
+                  value: _selectedClass,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  items: List.generate(
+                    StudentClassLevels.max - StudentClassLevels.min + 1,
+                    (index) => DropdownMenuItem(
+                      value: StudentClassLevels.min + index,
+                      child: Text('Class ${StudentClassLevels.min + index}', style: GoogleFonts.poppins()),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _selectedClass = value);
+                      _load();
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
         MentorGlassCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

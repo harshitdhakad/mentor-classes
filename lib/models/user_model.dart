@@ -49,4 +49,31 @@ class AppUser {
     if (!StudentClassLevels.isValid(studentClass)) return null;
     return 'Class $studentClass';
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'role': role.name,
+        'displayName': displayName,
+        'email': email,
+        'rollNumber': rollNumber,
+        'studentClass': studentClass,
+      };
+
+  static AppUser? fromJson(Map<String, dynamic>? json) {
+    if (json == null) return null;
+    final roleValue = json['role']?.toString();
+    if (roleValue == null) return null;
+    final role = UserRole.values.firstWhere(
+      (value) => value.name == roleValue,
+      orElse: () => UserRole.student,
+    );
+    return AppUser(
+      id: json['id']?.toString() ?? '',
+      role: role,
+      displayName: json['displayName']?.toString() ?? '',
+      email: json['email']?.toString(),
+      rollNumber: json['rollNumber']?.toString(),
+      studentClass: json['studentClass'] is int ? json['studentClass'] as int : int.tryParse(json['studentClass']?.toString() ?? ''),
+    );
+  }
 }

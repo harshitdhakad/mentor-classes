@@ -7,7 +7,6 @@ import '../../core/widgets/mentor_footer.dart';
 import '../../models/user_model.dart';
 import '../academic/academic_hub_screen.dart';
 import '../announcements/announcements_staff_screen.dart';
-import '../announcements/announcements_student_screen.dart';
 import '../attendance/student_attendance_screen.dart';
 import '../attendance/teacher_attendance_screen.dart';
 import '../auth/auth_service.dart';
@@ -17,10 +16,11 @@ import '../homework/homework_student_screen.dart';
 import '../homework/homework_teacher_screen.dart';
 import '../schedule/schedule_admin_screen.dart';
 import '../schedule/student_schedule_screen.dart';
-import '../tests/leaderboard_screen.dart';
-import '../tests/student_performance_screen.dart';
-import '../tests/test_hub_screen.dart';
+import '../schedule/advanced_schedule_screen.dart';
+import '../announcements/updates_center_screen.dart';
+import '../tests/enhanced_leaderboard_screen.dart';
 import '../todo/student_todo_screen.dart';
+import '../about/about_screen.dart';
 
 /// Role-aware drawer + body for MENTOR CLASSES ERP.
 class MainShellScreen extends ConsumerStatefulWidget {
@@ -39,9 +39,10 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
     'Academic hub',
     'Tests',
     'Leaderboard',
-    'Weekly schedule',
+    'Schedule Management',
     'Homework',
     'Notices',
+    'About',
   ];
 
   static const _studentTitles = [
@@ -52,29 +53,32 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
     'To-Do',
     'Attendance',
     'Homework',
-    'Notices',
+    'Updates',
+    'About',
   ];
 
   List<Widget> _staffPages() => const [
         StaffHomePage(),
         TeacherAttendanceScreen(),
         AcademicHubScreen(isStaffView: true),
-        TestHubScreen(),
-        LeaderboardScreen(),
+        AdvancedScheduleScreen(),
+        EnhancedLeaderboardScreen(),
         ScheduleAdminScreen(),
         HomeworkTeacherScreen(),
         AnnouncementsStaffScreen(),
+        AboutScreen(),
       ];
 
   List<Widget> _studentPages() => const [
         StudentHomePage(),
         AcademicHubScreen(isStaffView: false),
         StudentScheduleScreen(),
-        StudentPerformanceScreen(),
+        EnhancedLeaderboardScreen(),
         StudentTodoScreen(),
         StudentAttendanceScreen(),
         HomeworkStudentScreen(),
-        AnnouncementsStudentScreen(),
+        UpdatesCenterScreen(),
+        AboutScreen(),
       ];
 
   @override
@@ -94,9 +98,10 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
             Icons.menu_book_outlined,
             Icons.quiz_outlined,
             Icons.emoji_events_outlined,
-            Icons.calendar_view_week_outlined,
+            Icons.calendar_today_outlined,
             Icons.assignment_outlined,
             Icons.campaign_outlined,
+            Icons.info_outlined,
           ]
         : const [
             Icons.home_outlined,
@@ -106,7 +111,8 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
             Icons.checklist,
             Icons.calendar_month,
             Icons.book_outlined,
-            Icons.notifications_outlined,
+            Icons.update_outlined,
+            Icons.info_outlined,
           ];
 
     final subtitle = staff ? '${user.role.label} · Staff' : 'Student · Class ${user.studentClass ?? "—"}';
