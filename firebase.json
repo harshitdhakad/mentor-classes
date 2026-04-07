@@ -1,0 +1,39 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "mentor-classes-erp",
+          "appId": "1:361691330793:android:61f363071999d1750bd878",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "mentor-classes-erp",
+          "configurations": {
+            "android": "1:361691330793:android:61f363071999d1750bd878",
+            "ios": "1:361691330793:ios:9c1078996783779b0bd878",
+            "macos": "1:361691330793:ios:9c1078996783779b0bd878",
+            "web": "1:361691330793:web:7d2523039eefda030bd878",
+            "windows": "1:361691330793:web:fa6b7be6436741040bd878"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

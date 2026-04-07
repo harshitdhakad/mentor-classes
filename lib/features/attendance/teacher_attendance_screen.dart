@@ -87,6 +87,11 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
             presentByRoll: Map<String, bool>.from(_present),
             savedByEmail: user.email!,
           );
+      // Update current homework date if different
+      final currentHomeworkDate = ref.read(currentHomeworkDateProvider);
+      if (!DateUtils.isSameDay(currentHomeworkDate, _date)) {
+        ref.read(currentHomeworkDateProvider.notifier).state = _date;
+      }
       if (mounted) {
         setState(() => _attendanceJustSaved = true);
         ScaffoldMessenger.of(context).showSnackBar(

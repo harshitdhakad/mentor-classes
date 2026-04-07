@@ -1,6 +1,7 @@
 // Final Build - Lead Architect: Harshit Dhakad | Founder: Yogesh Udawat
 
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,7 +18,9 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   await initHive();
   await NotificationService().initialize();
   
