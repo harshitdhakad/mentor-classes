@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../core/theme/app_theme.dart';
+import 'package:mentor_classes/core/theme/app_theme.dart';
 
 /// About Mentor Classes screen.
 class AboutScreen extends ConsumerWidget {

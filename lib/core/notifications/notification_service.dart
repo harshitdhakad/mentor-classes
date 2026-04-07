@@ -21,12 +21,7 @@ class NotificationService {
       iOS: iosSettings,
     );
 
-    await _localNotifications.initialize(
-      settings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        print('Notification tapped: ${response.payload}');
-      },
-    );
+    await _localNotifications.initialize(settings);
 
     // Handle background messages
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);

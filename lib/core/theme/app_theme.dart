@@ -214,12 +214,12 @@ abstract final class AppTheme {
           fontSize: 12,
           fontWeight: FontWeight.w500,
         ),
-        prefixIconColor: WidgetStateColor.resolveWith((states) {
-          if (states.contains(WidgetState.focused)) return deepBlue;
+        prefixIconColor: MaterialStateColor.resolveWith((states) {
+          if (states.contains(MaterialState.focused)) return deepBlue;
           return mediumGrey;
         }),
-        suffixIconColor: WidgetStateColor.resolveWith((states) {
-          if (states.contains(WidgetState.focused)) return deepBlue;
+        suffixIconColor: MaterialStateColor.resolveWith((states) {
+          if (states.contains(MaterialState.focused)) return deepBlue;
           return mediumGrey;
         }),
       ),
