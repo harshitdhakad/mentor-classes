@@ -34,8 +34,8 @@ class NotificationService {
     if (androidImplementation != null) {
       await androidImplementation.createNotificationChannel(
         const AndroidNotificationChannel(
-          id: 'high_importance_channel',
-          name: 'High Importance Notifications',
+          'high_importance_channel',
+          'High Importance Notifications',
           importance: Importance.high,
           enableVibration: true,
           enableLights: true,

@@ -7,6 +7,6 @@ final erpRepositoryProvider = Provider<ErpRepository>((ref) {
 });
 
 /// Current date for homework display, defaults to today, updates when attendance is marked for a new date.
-final currentHomeworkDateProvider = StateProvider<DateTime>((ref) {
+final currentHomeworkDateProvider = StateProvider<DateTime?>((ref) {
   return DateTime.now();
 });
