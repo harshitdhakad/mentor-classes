@@ -22,7 +22,9 @@ import '../tests/enhanced_leaderboard_screen.dart';
 import '../tests/enhanced_marks_upload_screen.dart';
 import '../todo/student_todo_screen.dart';
 import '../about/about_screen.dart';
+import '../about/meet_our_faculty_screen.dart';
 import '../student/batch_manager_screen.dart';
+import '../student/student_profile_screen.dart';
 
 /// Role-aware drawer + body for MENTOR CLASSES ERP.
 class MainShellScreen extends ConsumerStatefulWidget {
@@ -45,11 +47,13 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
     'Schedule Management',
     'Homework',
     'Notices',
+    'Meet Faculty',
     'About',
   ];
 
   static const _studentTitles = [
     'Home',
+    'Profile',
     'Study hub',
     'My schedule',
     'My scores',
@@ -58,6 +62,7 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
     'Attendance',
     'Homework',
     'Updates',
+    'Meet Faculty',
     'About',
   ];
 
@@ -71,11 +76,13 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
         ScheduleAdminScreen(),
         HomeworkTeacherScreen(),
         AnnouncementsStaffScreen(),
+        MeetOurFacultyScreen(),
         AboutScreen(),
       ];
 
   List<Widget> _studentPages() => const [
         StudentHomePage(),
+        StudentProfileScreen(),
         AcademicResourceHubScreen(),
         StudentScheduleScreen(),
         EnhancedLeaderboardScreen(),
@@ -84,6 +91,7 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
         DetailedAttendanceSummaryScreen(),
         HomeworkStudentScreen(),
         UpdatesCenterScreen(),
+        MeetOurFacultyScreen(),
         AboutScreen(),
       ];
 
@@ -108,10 +116,12 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
             Icons.calendar_today_outlined,
             Icons.assignment_outlined,
             Icons.campaign_outlined,
+            Icons.school,
             Icons.info_outlined,
           ]
         : const [
             Icons.home_outlined,
+            Icons.person_outline,
             Icons.menu_book_outlined,
             Icons.event_note_outlined,
             Icons.show_chart,
@@ -120,6 +130,7 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
             Icons.calendar_month,
             Icons.book_outlined,
             Icons.update_outlined,
+            Icons.school,
             Icons.info_outlined,
           ];
 

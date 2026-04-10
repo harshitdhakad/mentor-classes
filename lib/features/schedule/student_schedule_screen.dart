@@ -88,7 +88,7 @@ class StudentScheduleScreen extends ConsumerWidget {
       stream: ref.read(erpRepositoryProvider).watchWeeklySchedule(classLevel),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: SizedBox.shrink());
         }
         final data = snap.data?.data();
         final days = data?['days'];

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../data/erp_providers.dart';
@@ -157,46 +157,18 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
     return report;
   }
 
-  Future<void> _shareToWhatsAppGroup() async {
+  Future<void> _copyToClipboard() async {
     final report = _generateAttendanceReport();
-    final encoded = Uri.encodeComponent(report);
     
-    // Launch WhatsApp with contact picker - user manually selects coaching group
-    final whatsappAppUrl = Uri.parse('whatsapp://send?text=$encoded');
-    final whatsappWebUrl = Uri.parse('https://wa.me/?text=$encoded');
-
     try {
-      if (await canLaunchUrl(whatsappAppUrl)) {
-        // WhatsApp app is installed - will show contact picker
-        await launchUrl(whatsappAppUrl, mode: LaunchMode.externalApplication);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Select your Coaching Group to send the attendance report'),
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
-      } else if (await canLaunchUrl(whatsappWebUrl)) {
-        // Fallback to web WhatsApp
-        await launchUrl(whatsappWebUrl, mode: LaunchMode.externalApplication);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Web WhatsApp opened - select your Coaching Group'),
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('❌ WhatsApp not installed. Install WhatsApp to share attendance reports.'),
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
+      await Clipboard.setData(ClipboardData(text: report));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Text copied to clipboard'),
+            duration: Duration(seconds: 2),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -208,61 +180,6 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
         );
       }
     }
-  }
-
-  Future<void> _showShareOptions() async {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Share Attendance Report',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Send formatted attendance report to WhatsApp group',
-              style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.share, color: Color(0xFF25D366)),
-              title: const Text('Share to Coaching Group'),
-              subtitle: Text('Complete attendance for Class $_classLevel', 
-                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600)),
-              trailing: const Icon(Icons.arrow_forward, size: 18),
-              onTap: () {
-                Navigator.pop(context);
-                _shareToWhatsAppGroup();
-              },
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, size: 18, color: Colors.blue.shade700),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'WhatsApp will open. Manually select your Coaching Group to send the report.',
-                      style: GoogleFonts.poppins(fontSize: 11, color: Colors.blue.shade700),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   @override
@@ -370,7 +287,7 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
         ),
         Expanded(
           child: _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: Text('Loading attendance...'))
               : _isHoliday
                   ? Center(
                       child: Text(
@@ -443,9 +360,9 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
               if (_attendanceJustSaved) ...[
                 const SizedBox(height: 12),
                 FilledButton.tonalIcon(
-                  onPressed: _showShareOptions,
-                  icon: const Icon(Icons.share),
-                  label: const Text('Share Report to Group'),
+                  onPressed: _copyToClipboard,
+                  icon: const Icon(Icons.copy),
+                  label: const Text('Copy to Clipboard'),
                 ),
               ],
             ],

@@ -151,9 +151,9 @@ class _BatchManagerScreenState extends ConsumerState<BatchManagerScreen> {
                   },
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: Text('Loading students...')),
               error: (err, stack) => Center(
-                child: Text('Error loading students: $err'),
+                child: Text('Error loading students. Please try again.'),
               ),
             ),
           ),
@@ -225,6 +225,17 @@ class _BatchManagerScreenState extends ConsumerState<BatchManagerScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 4),
+                    // Password display
+                    if (student.password != null && student.password!.isNotEmpty)
+                      Text(
+                        'Password: ${student.password}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.blueGrey,
+                        ),
+                      ),
                     const SizedBox(height: 4),
                     // Fees Status
                     Container(
@@ -335,6 +346,7 @@ class _BatchManagerScreenState extends ConsumerState<BatchManagerScreen> {
     final rollController = TextEditingController();
     final mobileController = TextEditingController();
     final feesController = TextEditingController();
+    final passwordController = TextEditingController();
 
     showDialog(
       context: context,
@@ -357,6 +369,14 @@ class _BatchManagerScreenState extends ConsumerState<BatchManagerScreen> {
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
                   labelText: 'Roll Number',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: passwordController,
+                decoration: const InputDecoration(
+                  labelText: 'Password (for login)',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -388,7 +408,7 @@ class _BatchManagerScreenState extends ConsumerState<BatchManagerScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (nameController.text.isEmpty || rollController.text.isEmpty) {
+              if (nameController.text.isEmpty || rollController.text.isEmpty || passwordController.text.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Please fill required fields')),
                 );
@@ -403,6 +423,7 @@ class _BatchManagerScreenState extends ConsumerState<BatchManagerScreen> {
                   classLevel: _selectedClass,
                   rollNumber: rollController.text,
                   name: nameController.text,
+                  password: passwordController.text,
                   mobileContact: mobileController.text.isEmpty ? null : mobileController.text,
                   emergencyContact: null,
                   totalFees: fees,

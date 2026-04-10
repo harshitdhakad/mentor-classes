@@ -56,7 +56,7 @@ class _AnnouncementsStudentScreenState extends ConsumerState<AnnouncementsStuden
             stream: repo.watchAnnouncementsStream(),
             builder: (context, snap) {
               if (!snap.hasData) {
-                return const Center(child: CircularProgressIndicator());
+                return const Center(child: Text('Loading announcements...'));
               }
               List<QueryDocumentSnapshot<Map<String, dynamic>>> docs = snap.data!.docs;
               if (user != null && user.role == UserRole.student && StudentClassLevels.isValid(user.studentClass)) {

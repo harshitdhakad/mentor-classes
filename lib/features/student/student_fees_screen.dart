@@ -74,7 +74,7 @@ class _StudentFeesScreenState extends ConsumerState<StudentFeesScreen> {
         elevation: 0,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: Text('Loading fees data...'))
           : user?.role.name != 'student'
               ? Center(
                   child: Text(

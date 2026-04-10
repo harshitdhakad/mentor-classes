@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:mentor_classes/core/theme/app_theme.dart';
+import '../auth/auth_service.dart';
+import '../../data/erp_providers.dart';
 
 /// About Mentor Classes screen.
 class AboutScreen extends ConsumerWidget {
@@ -11,6 +13,9 @@ class AboutScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authProvider);
+    final isAdmin = user?.role.name == 'admin';
+
     return Scaffold(
       appBar: AppBar(
         title: Text('About Mentor Classes', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
@@ -116,7 +121,7 @@ class AboutScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Class 10th student talented coder',
+                    ' Student & talented coder',
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -176,6 +181,56 @@ class AboutScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 20),
+          // Admin Reset Section
+          if (isAdmin)
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.red.shade300),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Admin Controls',
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.red,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Reset all data - This action cannot be undone',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        onPressed: () => _confirmReset(context, ref),
+                        icon: const Icon(Icons.delete_forever),
+                        label: Text(
+                          'Reset All Data',
+                          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          if (isAdmin) const SizedBox(height: 20),
           // Contact Support
           Card(
             elevation: 0,
@@ -222,6 +277,98 @@ class AboutScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _confirmReset(BuildContext context, WidgetRef ref) async {
+    final firstConfirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('⚠️ Warning', style: GoogleFonts.poppins(fontWeight: FontWeight.w700, color: Colors.red)),
+        content: Text(
+          'This will delete ALL student data, fees records, attendance, test marks, and resources. This action CANNOT be undone.',
+          style: GoogleFonts.poppins(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+
+    if (firstConfirm != true) return;
+
+    final secondConfirm = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('⚠️ Final Confirmation', style: GoogleFonts.poppins(fontWeight: FontWeight.w700, color: Colors.red)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Type "CONFIRMED" to proceed with data reset:',
+              style: GoogleFonts.poppins(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              autofocus: true,
+              decoration: InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: 'CONFIRMED',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, ''),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(context, 'CONFIRMED');
+            },
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+
+    if (secondConfirm != 'CONFIRMED') return;
+
+    try {
+      await ref.read(erpRepositoryProvider).resetAllData();
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ All data has been reset. The app will restart.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        await AuthService.logout();
+        
+        Future.delayed(const Duration(seconds: 2), () {
+          if (context.mounted) {
+            Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+          }
+        });
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Error during reset: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _launchEmail() async {

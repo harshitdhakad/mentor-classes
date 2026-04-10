@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../core/notifications/parent_notification_stub.dart';
+import '../features/staff/student_upload_repository.dart';
 import '../models/academic_resource_model.dart';
 import '../models/attendance_summary_model.dart';
 import '../models/fees_analytics_model.dart';
@@ -48,6 +49,7 @@ class ErpRepository {
   ErpRepository([FirebaseFirestore? db]) : _db = db ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _db;
+  late final CollectionReference<Map<String, dynamic>> _users = _db.collection('users');
 
   static String dateKey(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -186,12 +188,12 @@ class ErpRepository {
 
   /// Fetch single student with all fees data (for teacher detail view).
   Future<Map<String, dynamic>?> getStudentWithFees(String studentDocId) async {
-    final doc = await _students.doc(studentDocId).get();
+    final doc = await _users.doc(studentDocId).get();
     return doc.data();
   }
 
   Future<List<StudentListItem>> fetchStudentsByClass(int classLevel) async {
-    final snap = await _students.where('studentClass', isEqualTo: classLevel).get();
+    final snap = await _users.where('role', isEqualTo: 'student').where('studentClass', isEqualTo: classLevel).get();
     final list = snap.docs.map(_mapStudentDoc).whereType<StudentListItem>().toList();
     list.sort((a, b) => a.roll.compareTo(b.roll));
     return list;
@@ -199,13 +201,13 @@ class ErpRepository {
 
   StudentListItem? _mapStudentDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data();
-    final roll = (data['rollNumber'] ?? data['Roll Number'] ?? doc.id).toString();
-    final name = (data['name'] ?? data['Name'] ?? 'Student').toString();
+    final roll = (data['rollNumber'] ?? doc.id).toString();
+    final name = (data['displayName'] ?? 'Student').toString();
     if (roll.isEmpty) return null;
-    
+
     final totalFees = _parseDouble(data['total_fees'] ?? data['totalFees'] ?? 0);
     final remainingFees = _parseDouble(data['remaining_fees'] ?? data['remainingFees'] ?? totalFees);
-    
+
     return StudentListItem(
       roll: roll,
       name: name,
@@ -770,14 +772,34 @@ class ErpRepository {
     required int classLevel,
     required String rollNumber,
     required String name,
+    String? password,
     required String? mobileContact,
     required String? emergencyContact,
     double totalFees = 0.0,
   }) async {
-    final docRef = await _students.add({
+    final docId = StudentUploadRepository.documentIdForRoll(rollNumber);
+
+    // Save to users collection with password for login
+    await _users.doc(docId).set({
+      'id': docId,
+      'displayName': name,
+      'rollNumber': rollNumber,
+      'studentClass': classLevel,
+      'role': 'student',
+      'password': password,
+      'mobileNumber': mobileContact,
+      'emergencyContact': emergencyContact,
+      'total_fees': totalFees,
+      'remaining_fees': totalFees,
+      'enrolledDate': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    // Also save to students collection for backward compatibility
+    final docRef = await _students.doc(docId).set({
       'studentClass': classLevel,
       'rollNumber': rollNumber,
       'name': name,
+      'Password': password,
       'mobile_contact': mobileContact,
       'emergency_contact': emergencyContact,
       'total_fees': totalFees,
@@ -786,8 +808,9 @@ class ErpRepository {
       'enrolledDate': FieldValue.serverTimestamp(),
       'active': true,
       'createdAt': FieldValue.serverTimestamp(),
-    });
-    return docRef.id;
+    }, SetOptions(merge: true));
+
+    return docId;
   }
 
   /// Update student (for editing details)
@@ -825,9 +848,9 @@ class ErpRepository {
 
   /// Fetch enhanced student list for batch management
   Future<List<EnhancedStudentItem>> fetchStudentsByClassEnhanced(int classLevel) async {
-    final snap = await _students
+    final snap = await _users
+        .where('role', isEqualTo: 'student')
         .where('studentClass', isEqualTo: classLevel)
-        .where('active', isEqualTo: true)
         .get();
 
     final list = <EnhancedStudentItem>[];
@@ -835,8 +858,8 @@ class ErpRepository {
 
     for (final doc in snap.docs) {
       final data = doc.data();
-      final roll = (data['rollNumber'] ?? data['Roll Number'] ?? doc.id).toString();
-      final name = (data['name'] ?? data['Name'] ?? 'Student').toString();
+      final roll = (data['rollNumber'] ?? doc.id).toString();
+      final name = (data['displayName'] ?? 'Student').toString();
 
       if (roll.isNotEmpty) {
         final totalFees = _parseDouble(data['total_fees'] ?? data['totalFees'] ?? 0);
@@ -852,7 +875,8 @@ class ErpRepository {
           totalFees: totalFees,
           remainingFees: remainingFees,
           enrolledDate: (data['enrolledDate'] as Timestamp?)?.toDate(),
-          isActive: (data['active'] as bool?) ?? true,
+          isActive: true,
+          password: data['password'] as String?,
         ));
       }
     }
@@ -940,8 +964,8 @@ class ErpRepository {
   /// Get complete fees analytics for admin dashboard
   Future<FeesAnalytics> getFeesAnalytics() async {
     try {
-      final studentsSnap = await _students.where('active', isEqualTo: true).get();
-      
+      final studentsSnap = await _users.where('role', isEqualTo: 'student').get();
+
       double totalCollected = 0;
       double totalPending = 0;
       int paidStudentsCount = 0;
@@ -953,7 +977,7 @@ class ErpRepository {
         final totalFees = _parseDouble(data['total_fees'] ?? data['totalFees'] ?? 0);
         final remainingFees = _parseDouble(data['remaining_fees'] ?? data['remainingFees'] ?? totalFees);
         final paidFees = totalFees - remainingFees;
-        
+
         totalCollected += paidFees;
         totalPending += remainingFees;
 

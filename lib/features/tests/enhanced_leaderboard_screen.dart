@@ -162,7 +162,7 @@ class _TestWiseLeaderboard extends ConsumerWidget {
           .where('testName', isEqualTo: testName)
           .get(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) return const Center(child: SizedBox.shrink());
 
         if (snapshot.data!.docs.isEmpty) {
           return Center(child: Text('No marks found', style: GoogleFonts.poppins()));
@@ -299,7 +299,7 @@ class _SeriesCard extends ConsumerWidget {
                 .where('seriesId', isEqualTo: seriesName)
                 .get(),
             builder: (context, snapshot) {
-              if (!snapshot.hasData) return const SizedBox(height: 50, child: CircularProgressIndicator());
+              if (!snapshot.hasData) return const SizedBox(height: 50, child: SizedBox.shrink());
 
               final studentScores = <String, double>{};
               var maxMark = 0.0;
@@ -401,7 +401,7 @@ class _OverallPerformanceLeaderboard extends ConsumerWidget {
           .limit(20)
           .get(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) return const Center(child: SizedBox.shrink());
 
         if (snapshot.data!.docs.isEmpty) {
           return Center(

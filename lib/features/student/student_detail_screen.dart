@@ -161,7 +161,7 @@ class _StudentDetailScreenState extends ConsumerState<StudentDetailScreen> {
         elevation: 0,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: Text('Loading student details...'))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(

@@ -10,6 +10,7 @@ class EnhancedStudentItem {
     required this.remainingFees,
     this.enrolledDate,
     this.isActive = true,
+    this.password,
   });
 
   final int rowIndex;
@@ -21,6 +22,7 @@ class EnhancedStudentItem {
   final double remainingFees;
   final DateTime? enrolledDate;
   final bool isActive;
+  final String? password;
 
   double get paidFees => (totalFees - remainingFees).clamp(0.0, totalFees);
 
@@ -76,13 +78,13 @@ class StudentPerformanceSummary {
   String get performanceText {
     switch (performanceCategory) {
       case PerformanceCategory.excellent:
-        return 'उत्कृष्ट (Excellent)';
+        return 'Excellent';
       case PerformanceCategory.good:
-        return 'अच्छा (Good)';
+        return 'Good';
       case PerformanceCategory.average:
-        return 'औसत (Average)';
+        return 'Average';
       case PerformanceCategory.needsImprovement:
-        return 'सुधार आवश्यक (Needs Improvement)';
+        return 'Needs Improvement';
     }
   }
 }

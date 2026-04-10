@@ -116,11 +116,11 @@ class AcademicResource {
   String get resourceTypeDisplay {
     switch (resourceType) {
       case 'notes':
-        return 'नोट्स (Notes)';
+        return 'Notes';
       case 'test_papers':
-        return 'टेस्ट पेपर्स (Test Papers)';
+        return 'Test Papers';
       case 'worksheets':
-        return 'वर्कशीट (Worksheets)';
+        return 'Worksheets';
       default:
         return resourceType;
     }

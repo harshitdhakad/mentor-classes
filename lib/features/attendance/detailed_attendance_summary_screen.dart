@@ -83,7 +83,7 @@ class _DetailedAttendanceSummaryScreenState
             ),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: SizedBox.shrink());
           }
 
           final summary = snapshot.data;

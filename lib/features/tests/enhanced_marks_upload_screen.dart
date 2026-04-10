@@ -23,7 +23,7 @@ class _EnhancedMarksUploadScreenState
 
   int _selectedClass = 5;
   String _selectedTestType = 'weekly';
-  final List<String> _testTypes = ['weekly', 'monthly', 'unit', 'term'];
+  final List<String> _testTypes = ['weekly', 'monthly', 'series'];
 
   final Map<String, Map<String, dynamic>> _studentMarks = {};
   bool _isLoading = false;
@@ -139,12 +139,12 @@ class _EnhancedMarksUploadScreenState
                     children: _testTypes.map((type) {
                       final isSelected = _selectedTestType == type;
                       final displayName = type == 'weekly'
-                          ? 'साप्ताहिक (Weekly)'
+                          ? ' Weekly'
                           : type == 'monthly'
-                              ? 'मासिक (Monthly)'
-                              : type == 'unit'
-                                  ? 'यूनिट (Unit)'
-                                  : 'सेमेस्टर (Term)';
+                              ? ' Monthly'
+                              : type == 'series'
+                                  ? ' Series'
+                                  : ' Term';
                       return FilterChip(
                         label: Text(displayName),
                         selected: isSelected,
@@ -281,9 +281,9 @@ class _EnhancedMarksUploadScreenState
                   },
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: Text('Loading students...')),
               error: (err, stack) => Center(
-                child: Text('Error loading students: $err'),
+                child: Text('Error loading students. Please try again.'),
               ),
             ),
             const SizedBox(height: 24),

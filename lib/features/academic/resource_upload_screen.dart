@@ -9,6 +9,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/mentor_glass_card.dart';
 import '../../data/erp_providers.dart';
 import '../../models/academic_resource_model.dart';
+import '../auth/auth_service.dart';
 
 /// Screen for teachers to upload academic resources
 class ResourceUploadScreen extends ConsumerStatefulWidget {
@@ -103,10 +104,10 @@ class _ResourceUploadScreenState extends ConsumerState<ResourceUploadScreen> {
                   children: _resourceTypes.map((type) {
                     final isSelected = _selectedResourceType == type;
                     final displayName = type == 'notes'
-                        ? '📝 नोट्स'
+                        ? '📝 Notes'
                         : type == 'test_papers'
-                            ? '📄 टेस्ट पेपर्स'
-                            : '✏️ वर्कशीट';
+                            ? '📄 Test Papers'
+                            : '✏️ Worksheets';
                     return FilterChip(
                       label: Text(displayName),
                       selected: isSelected,
@@ -395,6 +396,18 @@ class _ResourceUploadScreenState extends ConsumerState<ResourceUploadScreen> {
   }
 
   Future<void> _uploadResource() async {
+    // Authentication check
+    final user = ref.read(authProvider);
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('❌ Not authenticated. Please sign in to upload resources.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     // Validation
     if (_selectedResourceType == null || _selectedSubject == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -417,6 +430,17 @@ class _ResourceUploadScreenState extends ConsumerState<ResourceUploadScreen> {
       return;
     }
 
+    // File existence check
+    if (!_selectedFile!.existsSync()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('❌ Selected file does not exist'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isUploading = true);
 
     try {
@@ -431,9 +455,29 @@ class _ResourceUploadScreenState extends ConsumerState<ResourceUploadScreen> {
       final storagePath =
           'academic_resources/class_$selectedClass/${_selectedSubject!}/$_selectedResourceType/${_titleController.text}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
 
+      debugPrint('📤 Uploading resource to Firebase Storage...');
+      debugPrint('📁 Storage path: $storagePath');
+      debugPrint('📄 File path: ${_selectedFile!.path}');
+
+      // Validate storage path
+      if (storagePath.isEmpty) {
+        throw Exception('Storage path cannot be empty');
+      }
+
       final storageRef = FirebaseStorage.instance.ref(storagePath);
-      await storageRef.putFile(_selectedFile!);
-      final fileUrl = await storageRef.getDownloadURL();
+      debugPrint('🔗 Storage reference created: ${storageRef.fullPath}');
+
+      final uploadTask = storageRef.putFile(_selectedFile!);
+      uploadTask.snapshotEvents.listen((event) {
+        final progress = event.bytesTransferred / event.totalBytes;
+        debugPrint('⬆️ Upload progress: ${(progress * 100).toStringAsFixed(1)}%');
+      });
+
+      final snapshot = await uploadTask;
+      debugPrint('✅ File uploaded successfully');
+
+      final fileUrl = await snapshot.ref.getDownloadURL();
+      debugPrint('🔗 Download URL obtained: $fileUrl');
 
       // Create resource model
       final resource = AcademicResource(
@@ -445,11 +489,13 @@ class _ResourceUploadScreenState extends ConsumerState<ResourceUploadScreen> {
         fileUrl: fileUrl,
         fileName: _selectedFile!.path.split('/').last,
         fileType: fileType,
-        uploadedBy: 'teacher@mentorclasses.com', // TODO: Get from auth provider
+        uploadedBy: user.email ?? 'Unknown',
       );
 
       // Save to Firestore
+      debugPrint('💾 Saving resource to Firestore...');
       await repo.uploadAcademicResource(resource: resource);
+      debugPrint('✅ Resource saved to Firestore');
 
       if (mounted) {
         // Reset form
@@ -474,9 +520,17 @@ class _ResourceUploadScreenState extends ConsumerState<ResourceUploadScreen> {
         ref.refresh(selectedResourceTypeProvider);
       }
     } catch (e) {
+      debugPrint('❌ Upload failed with error: $e');
+      debugPrint('❌ Error type: ${e.runtimeType}');
+      debugPrint('❌ Stack trace: ${StackTrace.current}');
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: $e')),
+          SnackBar(
+            content: Text('❌ Upload failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
       setState(() => _isUploading = false);

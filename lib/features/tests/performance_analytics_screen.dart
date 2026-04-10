@@ -78,9 +78,9 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
             ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: Text('Loading analytics...')),
         error: (err, stack) => Center(
-          child: Text('Error loading analytics: $err'),
+          child: Text('Error loading analytics. Please try again.'),
         ),
       ),
     );

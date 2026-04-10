@@ -145,7 +145,7 @@ class _MarksEntryScreenState extends ConsumerState<MarksEntryScreen> {
           ),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: Text('Loading students...'))
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     itemCount: _students.length,

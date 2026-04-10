@@ -18,7 +18,8 @@ class StudentUploadRepository {
     return s;
   }
 
-  /// Writes [rows] to `students` with fields aligned to login + Excel upload.
+  /// Writes [rows] to `users` with mandatory fields: name, rollNo, class, role.
+  /// Also saves to `students` collection for backward compatibility.
   Future<int> uploadRows(List<ParsedStudentRow> rows) async {
     if (rows.isEmpty) return 0;
 
@@ -28,9 +29,29 @@ class StudentUploadRepository {
       final batch = _db.batch();
       final part = rows.skip(i).take(chunk);
       for (final row in part) {
-        final ref = _db.collection('students').doc(documentIdForRoll(row.rollNo));
+        final docId = documentIdForRoll(row.rollNo);
+
+        // Save to users collection with mandatory fields including password for login
+        final userRef = _db.collection('users').doc(docId);
         batch.set(
-          ref,
+          userRef,
+          {
+            'id': docId,
+            'displayName': row.name,
+            'rollNumber': row.rollNo,
+            'studentClass': row.classLevel,
+            'role': 'student',
+            'password': row.password,
+            if (row.mobileNumber.isNotEmpty) 'mobileNumber': row.mobileNumber,
+            if (row.emergencyContact.isNotEmpty) 'emergencyContact': row.emergencyContact,
+          },
+          SetOptions(merge: true),
+        );
+
+        // Also save to students collection for backward compatibility
+        final studentRef = _db.collection('students').doc(docId);
+        batch.set(
+          studentRef,
           {
             'name': row.name,
             'rollNumber': row.rollNo,

@@ -133,7 +133,7 @@ class StudentHomePage extends ConsumerWidget {
               if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
                 return const SizedBox(
                   height: 50,
-                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  child: Center(child: SizedBox.shrink()),
                 );
               }
               if (!snap.hasData || snap.data!.docs.isEmpty) {
@@ -348,7 +348,7 @@ class _ScheduleSectionState extends ConsumerState<_ScheduleSection> {
             if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
               return const SizedBox(
                 height: 100,
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(child: SizedBox.shrink()),
               );
             }
             final data = snap.data?.data();
@@ -444,7 +444,7 @@ class _ScheduleSectionState extends ConsumerState<_ScheduleSection> {
                 ),
                 child: const Padding(
                   padding: EdgeInsets.all(16),
-                  child: SizedBox(height: 80, child: Center(child: CircularProgressIndicator())),
+                  child: SizedBox(height: 80, child: Center(child: SizedBox.shrink())),
                 ),
               );
             }
@@ -585,7 +585,7 @@ class _SyllabusProgressPreview extends ConsumerWidget {
             ),
             child: const Padding(
               padding: EdgeInsets.all(16),
-              child: SizedBox(height: 60, child: Center(child: CircularProgressIndicator())),
+              child: SizedBox(height: 60, child: Center(child: SizedBox.shrink())),
             ),
           );
         }
@@ -778,7 +778,7 @@ class _TodaysScheduleState extends ConsumerState<_TodaysSchedule> {
             if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
               return const SizedBox(
                 height: 100,
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(child: SizedBox.shrink()),
               );
             }
             final data = snap.data?.data();

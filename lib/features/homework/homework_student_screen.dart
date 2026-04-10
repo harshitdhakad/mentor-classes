@@ -217,7 +217,7 @@ class _HomeworkStudentScreenState extends ConsumerState<HomeworkStudentScreen> {
                         );
                       },
                       loading: () => const Center(
-                        child: CircularProgressIndicator(),
+                        child: SizedBox.shrink(),
                       ),
                       error: (error, stackTrace) => Center(
                         child: Text('Error: $error'),
@@ -295,7 +295,7 @@ class _HomeworkStudentScreenState extends ConsumerState<HomeworkStudentScreen> {
                 imageUrl: imageUrl,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => const Center(
-                  child: CircularProgressIndicator(),
+                  child: SizedBox.shrink(),
                 ),
                 errorWidget: (context, url, error) => const Center(
                   child: Icon(Icons.error_outline),
@@ -344,7 +344,7 @@ class _HomeworkStudentScreenState extends ConsumerState<HomeworkStudentScreen> {
             maxScale: 4.0,
             child: CachedNetworkImage(
               imageUrl: imageUrl,
-              placeholder: (context, url) => const CircularProgressIndicator(),
+              placeholder: (context, url) => const SizedBox.shrink(),
               errorWidget: (context, url, error) =>
                   const Icon(Icons.error_outline),
             ),

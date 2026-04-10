@@ -159,7 +159,7 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
         ),
         Expanded(
           child: _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: Text('Loading attendance...'))
               : Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: _MonthDotsGrid(

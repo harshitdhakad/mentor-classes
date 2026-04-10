@@ -120,6 +120,12 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
   Future<List<String>> _uploadImages() async {
     final uploadedUrls = <String>[];
 
+    // Authentication check
+    final user = ref.read(authProvider);
+    if (user == null) {
+      throw Exception('Not authenticated');
+    }
+
     for (final imageFile in _selectedImages) {
       final fileName = imageFile.path.split('/').last;
       final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -127,22 +133,46 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
           'homework/class_$_selectedClass/$_selectedSubject/images/${timestamp}_$fileName';
 
       try {
+        debugPrint('📤 Uploading image: $fileName');
+        debugPrint('📁 Storage path: $storagePath');
+
+        // Validate storage path
+        if (storagePath.isEmpty) {
+          throw Exception('Storage path cannot be empty for image $fileName');
+        }
+
+        // File existence check
+        if (!imageFile.existsSync()) {
+          throw Exception('Image file does not exist: ${imageFile.path}');
+        }
+
         setState(() => _uploadProgress[fileName] = 0);
 
-        final task = FirebaseStorage.instance.ref(storagePath).putFile(imageFile);
+        final storageRef = FirebaseStorage.instance.ref(storagePath);
+        debugPrint('🔗 Storage reference created: ${storageRef.fullPath}');
+
+        final task = storageRef.putFile(imageFile);
 
         task.snapshotEvents.listen((event) {
           final progress = event.bytesTransferred / event.totalBytes;
           setState(() => _uploadProgress[fileName] = progress);
+          debugPrint('⬆️ Image upload progress for $fileName: ${(progress * 100).toStringAsFixed(1)}%');
         });
 
         final snapshot = await task;
+        debugPrint('✅ Image uploaded successfully: $fileName');
+
         final url = await snapshot.ref.getDownloadURL();
+        debugPrint('🔗 Download URL obtained for $fileName');
         uploadedUrls.add(url);
 
         setState(() => _uploadProgress.remove(fileName));
       } catch (e) {
         debugPrint('❌ Error uploading image $fileName: $e');
+        debugPrint('❌ Error type: ${e.runtimeType}');
+        debugPrint('❌ Stack trace: ${StackTrace.current}');
+        setState(() => _uploadProgress.remove(fileName));
+        rethrow;
       }
     }
 
@@ -153,6 +183,12 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
   Future<List<Map<String, String>>> _uploadFiles() async {
     final uploadedAttachments = <Map<String, String>>[];
 
+    // Authentication check
+    final user = ref.read(authProvider);
+    if (user == null) {
+      throw Exception('Not authenticated');
+    }
+
     for (final file in _selectedFiles) {
       final fileName = file.path.split('/').last;
       final fileExtension = fileName.split('.').last;
@@ -161,17 +197,37 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
           'homework/class_$_selectedClass/$_selectedSubject/files/${timestamp}_$fileName';
 
       try {
+        debugPrint('📤 Uploading file: $fileName');
+        debugPrint('📁 Storage path: $storagePath');
+
+        // Validate storage path
+        if (storagePath.isEmpty) {
+          throw Exception('Storage path cannot be empty for file $fileName');
+        }
+
+        // File existence check
+        if (!file.existsSync()) {
+          throw Exception('File does not exist: ${file.path}');
+        }
+
         setState(() => _uploadProgress[fileName] = 0);
 
-        final task = FirebaseStorage.instance.ref(storagePath).putFile(file);
+        final storageRef = FirebaseStorage.instance.ref(storagePath);
+        debugPrint('🔗 Storage reference created: ${storageRef.fullPath}');
+
+        final task = storageRef.putFile(file);
 
         task.snapshotEvents.listen((event) {
           final progress = event.bytesTransferred / event.totalBytes;
           setState(() => _uploadProgress[fileName] = progress);
+          debugPrint('⬆️ File upload progress for $fileName: ${(progress * 100).toStringAsFixed(1)}%');
         });
 
         final snapshot = await task;
+        debugPrint('✅ File uploaded successfully: $fileName');
+
         final url = await snapshot.ref.getDownloadURL();
+        debugPrint('🔗 Download URL obtained for $fileName');
 
         uploadedAttachments.add({
           'fileName': fileName,
@@ -182,6 +238,10 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
         setState(() => _uploadProgress.remove(fileName));
       } catch (e) {
         debugPrint('❌ Error uploading file $fileName: $e');
+        debugPrint('❌ Error type: ${e.runtimeType}');
+        debugPrint('❌ Stack trace: ${StackTrace.current}');
+        setState(() => _uploadProgress.remove(fileName));
+        rethrow;
       }
     }
 

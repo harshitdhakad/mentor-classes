@@ -134,7 +134,7 @@ class _AnnouncementsStaffScreenState extends ConsumerState<AnnouncementsStaffScr
             stream: repo.watchAnnouncementsStream(),
             builder: (context, snap) {
               if (!snap.hasData) {
-                return const Center(child: CircularProgressIndicator());
+                return const Center(child: Text('Loading announcements...'));
               }
               final docs = snap.data!.docs;
               if (docs.isEmpty) {

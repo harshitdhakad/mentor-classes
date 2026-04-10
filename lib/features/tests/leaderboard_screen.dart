@@ -9,7 +9,21 @@ import '../../data/erp_providers.dart';
 import '../../data/erp_repository.dart';
 import '../../models/user_model.dart';
 
-/// Full ranked list for a selected test (top to bottom); NG at end; medals for ranks 1–3.
+class StudentLeaderboardItem {
+  StudentLeaderboardItem({
+    required this.rollNumber,
+    required this.name,
+    required this.totalScore,
+    this.rank,
+  });
+
+  final String rollNumber;
+  final String name;
+  final double totalScore;
+  int? rank;
+}
+
+/// Enhanced Leaderboard with total score from all core subjects
 class LeaderboardScreen extends ConsumerStatefulWidget {
   const LeaderboardScreen({super.key});
 
@@ -18,68 +32,131 @@ class LeaderboardScreen extends ConsumerStatefulWidget {
 }
 
 class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
-  int _classLevel = 8;
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> _tests = [];
-  String? _selectedId;
-  List<LeaderboardRow> _board = [];
-  bool _loading = true;
+  int? _selectedClass;
+  List<StudentLeaderboardItem> _leaderboard = [];
+  bool _loading = false;
+
+  final List<String> _coreSubjects = ['SST', 'Science', 'Maths', 'English'];
 
   @override
   void initState() {
     super.initState();
-    _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _loadLeaderboard() async {
+    if (_selectedClass == null) return;
+
     setState(() => _loading = true);
-    final tests = await ref.read(erpRepositoryProvider).fetchTestsForClass(_classLevel);
-    final selId = tests.isNotEmpty ? tests.first.id : null;
-    List<LeaderboardRow> board = [];
-    if (selId != null) {
-      board = ref.read(erpRepositoryProvider).leaderboardForTest(tests.first);
+
+    try {
+      final repo = ref.read(erpRepositoryProvider);
+      
+      // Fetch all students in the selected class
+      final studentsSnap = await FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'student')
+          .where('studentClass', isEqualTo: _selectedClass)
+          .get();
+
+      final leaderboard = <StudentLeaderboardItem>[];
+
+      for (final studentDoc in studentsSnap.docs) {
+        final studentData = studentDoc.data();
+        final rollNumber = studentData['rollNumber'] as String? ?? '';
+        final name = studentData['displayName'] as String? ?? 'Unknown';
+
+        // Calculate total score from all core subjects
+        double totalScore = 0;
+        for (final subject in _coreSubjects) {
+          final marksSnap = await FirebaseFirestore.instance
+              .collection('test_marks')
+              .where('classLevel', isEqualTo: _selectedClass)
+              .where('subject', isEqualTo: subject)
+              .where('marksByRoll.$rollNumber', isNull: false)
+              .get();
+
+          for (final markDoc in marksSnap.docs) {
+            final marksData = markDoc.data();
+            final marksByRoll = marksData['marksByRoll'] as Map<String, dynamic>?;
+            if (marksByRoll != null && marksByRoll.containsKey(rollNumber)) {
+              totalScore += (marksByRoll[rollNumber] as num?)?.toDouble() ?? 0;
+            }
+          }
+        }
+
+        leaderboard.add(StudentLeaderboardItem(
+          rollNumber: rollNumber,
+          name: name,
+          totalScore: totalScore,
+        ));
+      }
+
+      // Sort by total score descending
+      leaderboard.sort((a, b) => b.totalScore.compareTo(a.totalScore));
+
+      // Assign ranks
+      for (int i = 0; i < leaderboard.length; i++) {
+        leaderboard[i].rank = i + 1;
+      }
+
+      setState(() {
+        _leaderboard = leaderboard;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() => _loading = false);
     }
-    setState(() {
-      _tests = tests;
-      _selectedId = selId;
-      _board = board;
-      _loading = false;
-    });
   }
 
-  void _applyTest(String? id) {
-    if (id == null) return;
-    final match = _tests.where((d) => d.id == id);
-    if (match.isEmpty) return;
-    final doc = match.first;
-    final board = ref.read(erpRepositoryProvider).leaderboardForTest(doc);
-    setState(() {
-      _selectedId = id;
-      _board = board;
-    });
-  }
-
-  Widget _rankLeading(LeaderboardRow row) {
-    if (row.isNg) {
-      return SizedBox(
-        width: 36,
-        child: Text('NG', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+  Widget _buildRankBadge(int rank) {
+    if (rank == 1) {
+      return Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.amber.shade400,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(Icons.emoji_events, color: Colors.amber.shade700),
       );
     }
-    final r = row.rank;
-    if (r == 1) {
-      return Icon(Icons.emoji_events, color: Colors.amber.shade700);
+    if (rank == 2) {
+      return Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.blueGrey.shade300,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(Icons.emoji_events, color: Colors.blueGrey.shade600),
+      );
     }
-    if (r == 2) {
-      return Icon(Icons.emoji_events, color: Colors.blueGrey.shade400);
+    if (rank == 3) {
+      return Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.brown.shade300,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(Icons.emoji_events, color: Colors.brown.shade600),
+      );
     }
-    if (r == 3) {
-      return Icon(Icons.emoji_events, color: Colors.brown.shade400);
-    }
-    return SizedBox(
-      width: 36,
-      child: Text(
-        '#$r',
-        style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppTheme.deepBlue),
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: AppTheme.deepBlue.withOpacity(0.1),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          '#$rank',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w600,
+            color: AppTheme.deepBlue,
+          ),
+        ),
       ),
     );
   }
@@ -89,104 +166,149 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
+        // Class Selector
+        Container(
           padding: const EdgeInsets.all(16),
-          child: MentorGlassCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                DropdownButtonFormField<int>(
-                  // ignore: deprecated_member_use
-                  value: _classLevel,
-                  decoration: const InputDecoration(labelText: 'Class'),
-                  items: [
-                    for (var c = StudentClassLevels.min; c <= StudentClassLevels.max; c++)
-                      DropdownMenuItem(value: c, child: Text('Class $c')),
-                  ],
-                  onChanged: (v) async {
-                    if (v == null) return;
-                    setState(() => _classLevel = v);
-                    await _load();
-                  },
+          color: Colors.grey.shade50,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Select Class',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.deepBlue,
                 ),
-                const SizedBox(height: 8),
-                if (_tests.isNotEmpty)
-                  DropdownButtonFormField<String>(
-                    // ignore: deprecated_member_use
-                    value: _selectedId,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Test'),
-                    items: _tests
-                        .map(
-                          (d) => DropdownMenuItem(
-                            value: d.id,
-                            child: Text(
-                              '${d.data()['testName']} · ${d.data()['dateKey']}',
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.poppins(fontSize: 13),
-                            ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: List.generate(6, (index) {
+                  final classNum = index + 5;
+                  final isSelected = _selectedClass == classNum;
+                  return FilterChip(
+                    label: Text('Class $classNum'),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() => _selectedClass = selected ? classNum : null);
+                      if (selected) {
+                        _loadLeaderboard();
+                      } else {
+                        setState(() => _leaderboard = []);
+                      }
+                    },
+                    backgroundColor: Colors.white,
+                    selectedColor: AppTheme.deepBlue,
+                    labelStyle: TextStyle(
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color: isSelected ? Colors.white : Colors.black87,
+                    ),
+                  );
+                }),
+              ),
+            ],
+          ),
+        ),
+
+        // Leaderboard List
+        Expanded(
+          child: _selectedClass == null
+              ? const Center(
+                  child: Text(
+                    'Please select a class',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                )
+              : _loading
+                  ? const Center(child: Text('Loading...'))
+                  : _leaderboard.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No marks available for this class',
+                            style: TextStyle(fontSize: 16, color: Colors.grey),
                           ),
                         )
-                        .toList(),
-                    onChanged: _applyTest,
-                  ),
-              ],
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _leaderboard.length,
+                          itemBuilder: (context, index) {
+                            final item = _leaderboard[index];
+                            final isTop3 = item.rank != null && item.rank! <= 3;
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              elevation: isTop3 ? 4 : 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                side: BorderSide(
+                                  color: isTop3
+                                      ? AppTheme.deepBlue.withValues(alpha: 0.3)
+                                      : Colors.grey.shade300!,
+                                  width: isTop3 ? 2 : 1,
+                                ),
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                leading: _buildRankBadge(item.rank ?? 0),
+                                title: Text(
+                                  item.name,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  'Roll: ${item.rollNumber}',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                trailing: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      item.totalScore.toStringAsFixed(1),
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.deepBlue,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Total',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+        ),
+
+        // Footer
+        if (_leaderboard.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              'Total score calculated from SST, Science, Maths, and English',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                color: Colors.grey.shade600,
+              ),
             ),
           ),
-        ),
-        Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _board.isEmpty
-                  ? Center(child: Text('No marks for this test yet.', style: GoogleFonts.poppins()))
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: _board.length,
-                      itemBuilder: (context, i) {
-                        final row = _board[i];
-                        final highlight = !row.isNg && row.rank <= 3;
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(
-                              color: highlight ? AppTheme.deepBlue.withValues(alpha: 0.35) : Colors.grey.shade200,
-                              width: highlight ? 1.5 : 1,
-                            ),
-                          ),
-                          child: ListTile(
-                            leading: _rankLeading(row),
-                            title: Text(
-                              'Roll ${row.roll}',
-                              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                            ),
-                            subtitle: row.isNg
-                                ? Text('Not given', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600))
-                                : null,
-                            trailing: row.isNg
-                                ? null
-                                : Text(
-                                    row.score!.toStringAsFixed(1),
-                                    style: GoogleFonts.poppins(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: AppTheme.deepBlue,
-                                    ),
-                                  ),
-                          ),
-                        );
-                      },
-                    ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Text(
-            'Sorted rank 1 → last · NG listed after scored students',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey.shade600),
-          ),
-        ),
       ],
     );
   }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../auth/auth_service.dart';
 
 /// Admin/Teacher Student Management Screen
 class StudentManagementScreen extends ConsumerStatefulWidget {
@@ -18,17 +19,43 @@ class _StudentManagementScreenState
     extends ConsumerState<StudentManagementScreen> {
   String? _selectedClass;
   String _searchQuery = '';
+  bool _isSelectionMode = false;
+  final Set<String> _selectedStudentIds = {};
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(authProvider);
+    final isStaff = user?.isStaff ?? false;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Student Management',
+          _isSelectionMode
+              ? '${_selectedStudentIds.length} Selected'
+              : 'Student Management',
           style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         ),
         backgroundColor: AppTheme.deepBlue,
         foregroundColor: Colors.white,
+        actions: [
+          if (_isSelectionMode)
+            IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: _selectedStudentIds.isEmpty
+                  ? null
+                  : () => _deleteSelectedStudents(),
+            ),
+          if (_isSelectionMode)
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () {
+                setState(() {
+                  _isSelectionMode = false;
+                  _selectedStudentIds.clear();
+                });
+              },
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -73,11 +100,12 @@ class _StudentManagementScreenState
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('students')
+                  .collection('users')
+                  .where('role', isEqualTo: 'student')
                   .snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(child: Text('Loading students...'));
                 }
 
                 var students = snapshot.data!.docs;
@@ -86,7 +114,7 @@ class _StudentManagementScreenState
                 if (_selectedClass != null) {
                   students = students
                       .where((doc) =>
-                          (doc['class'] ?? '').toString() ==
+                          (doc['studentClass'] ?? '').toString() ==
                           _selectedClass)
                       .toList();
                 }
@@ -95,11 +123,11 @@ class _StudentManagementScreenState
                 if (_searchQuery.isNotEmpty) {
                   students = students
                       .where((doc) =>
-                          (doc['name'] ?? '')
+                          (doc['displayName'] ?? '')
                               .toString()
                               .toLowerCase()
                               .contains(_searchQuery) ||
-                          (doc['roll'] ?? '')
+                          (doc['rollNumber'] ?? '')
                               .toString()
                               .toLowerCase()
                               .contains(_searchQuery))
@@ -122,40 +150,76 @@ class _StudentManagementScreenState
                   itemBuilder: (context, index) {
                     final student = students[index];
                     final data = student.data() as Map<String, dynamic>;
+                    final isSelected = _selectedStudentIds.contains(student.id);
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
+                      color: isSelected ? AppTheme.deepBlue.withValues(alpha: 0.1) : null,
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(16),
-                        leading: CircleAvatar(
-                          backgroundColor: AppTheme.deepBlue,
-                          child: Text(
-                            (data['name'] ?? 'S')[0].toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
+                        leading: _isSelectionMode
+                            ? Checkbox(
+                                value: isSelected,
+                                onChanged: (value) {
+                                  setState(() {
+                                    if (value == true) {
+                                      _selectedStudentIds.add(student.id);
+                                    } else {
+                                      _selectedStudentIds.remove(student.id);
+                                    }
+                                  });
+                                },
+                              )
+                            : CircleAvatar(
+                                backgroundColor: AppTheme.deepBlue,
+                                child: Text(
+                                  (data['displayName'] ?? 'S')[0].toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
                         title: Text(
-                          data['name'] ?? 'Unknown',
+                          data['displayName'] ?? 'Unknown',
                           style: GoogleFonts.poppins(
                             fontWeight: FontWeight.w600,
                             fontSize: 16,
                           ),
                         ),
                         subtitle: Text(
-                          'Roll: ${data['roll'] ?? 'N/A'} | Class: ${data['class'] ?? 'N/A'}',
+                          'Roll: ${data['rollNumber'] ?? 'N/A'} | Class: ${data['studentClass'] ?? 'N/A'}',
                           style: GoogleFonts.poppins(fontSize: 12),
                         ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.arrow_forward_ios),
-                          onPressed: () => _navigateToDetails(
-                            context,
-                            student.id,
-                            data,
-                          ),
-                        ),
+                        trailing: _isSelectionMode
+                            ? null
+                            : IconButton(
+                                icon: const Icon(Icons.arrow_forward_ios),
+                                onPressed: () => _navigateToDetails(
+                                  context,
+                                  student.id,
+                                  data,
+                                ),
+                              ),
+                        onLongPress: isStaff
+                            ? () {
+                                setState(() {
+                                  _isSelectionMode = true;
+                                  _selectedStudentIds.add(student.id);
+                                });
+                              }
+                            : null,
+                        onTap: _isSelectionMode && isStaff
+                            ? () {
+                                setState(() {
+                                  if (isSelected) {
+                                    _selectedStudentIds.remove(student.id);
+                                  } else {
+                                    _selectedStudentIds.add(student.id);
+                                  }
+                                });
+                              }
+                            : null,
                       ),
                     );
                   },
@@ -180,6 +244,67 @@ class _StudentManagementScreenState
             StudentDetailsScreen(studentId: studentId, studentData: data),
       ),
     );
+  }
+
+  Future<void> _deleteSelectedStudents() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Delete ${_selectedStudentIds.length} Student(s)',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w700, color: Colors.red),
+        ),
+        content: Text(
+          'This will permanently delete the selected students from Firestore. This action cannot be undone.',
+          style: GoogleFonts.poppins(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (final studentId in _selectedStudentIds) {
+        // Delete from users collection
+        batch.delete(FirebaseFirestore.instance.collection('users').doc(studentId));
+        // Delete from students collection
+        batch.delete(FirebaseFirestore.instance.collection('students').doc(studentId));
+      }
+
+      await batch.commit();
+
+      if (mounted) {
+        setState(() {
+          _isSelectionMode = false;
+          _selectedStudentIds.clear();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ ${_selectedStudentIds.length} student(s) deleted successfully'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Error deleting students: $e')),
+        );
+      }
+    }
   }
 }
 
@@ -225,7 +350,7 @@ class StudentDetailsScreen extends ConsumerWidget {
                       radius: 40,
                       backgroundColor: AppTheme.deepBlue,
                       child: Text(
-                        (studentData['name'] ?? 'S')[0].toUpperCase(),
+                        (studentData['displayName'] ?? 'S')[0].toUpperCase(),
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -239,7 +364,7 @@ class StudentDetailsScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            studentData['name'] ?? 'Unknown',
+                            studentData['displayName'] ?? 'Unknown',
                             style: GoogleFonts.poppins(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -247,7 +372,7 @@ class StudentDetailsScreen extends ConsumerWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Roll: ${studentData['roll'] ?? 'N/A'} | Class: ${studentData['class'] ?? 'N/A'}',
+                            'Roll: ${studentData['rollNumber'] ?? 'N/A'} | Class: ${studentData['studentClass'] ?? 'N/A'}',
                             style: GoogleFonts.poppins(
                               fontSize: 13,
                               color: Colors.grey.shade700,
@@ -273,9 +398,9 @@ class StudentDetailsScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             _buildInfoCard('Email', studentData['email'] ?? 'N/A'),
             _buildInfoCard(
-                'Phone', studentData['phone'] ?? 'N/A'),
+                'Phone', studentData['mobileNumber'] ?? studentData['phone'] ?? 'N/A'),
             _buildInfoCard(
-                'Guardian', studentData['guardian_name'] ?? 'N/A'),
+                'Guardian', studentData['emergencyContact'] ?? studentData['guardian_name'] ?? 'N/A'),
             const SizedBox(height: 20),
 
             // Fees Status Section

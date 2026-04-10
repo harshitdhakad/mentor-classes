@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../data/erp_providers.dart';
+import '../auth/auth_service.dart';
+import 'chapter_tracking_screen.dart';
 import 'resource_upload_screen.dart';
 import 'resources_view_screen.dart';
 
@@ -36,6 +38,8 @@ class _AcademicResourceHubScreenState
   Widget build(BuildContext context) {
     final selectedClass = ref.watch(selectedClassProvider);
     final selectedResourceType = ref.watch(selectedResourceTypeProvider);
+    final user = ref.watch(authProvider);
+    final isStudent = user?.role.name == 'student';
 
     return Scaffold(
       appBar: AppBar(
@@ -80,10 +84,10 @@ class _AcademicResourceHubScreenState
                         ),
                         child: Text(
                           selectedResourceType == 'notes'
-                              ? '📝 नोट्स'
+                              ? '📝 Notes'
                               : selectedResourceType == 'test_papers'
-                                  ? '📄 टेस्ट पेपर्स'
-                                  : '✏️ वर्कशीट',
+                                  ? '📄 Test Papers'
+                                  : '✏️ Worksheets',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -109,28 +113,35 @@ class _AcademicResourceHubScreenState
                 children: [
                   _buildTabButton(
                     icon: '📝',
-                    label: 'नोट्स',
+                    label: 'Notes',
                     index: 0,
                     isActive: _currentTabIndex == 0,
                   ),
                   _buildTabButton(
                     icon: '📄',
-                    label: 'टेस्ट पेपर्स',
+                    label: 'Test Papers',
                     index: 1,
                     isActive: _currentTabIndex == 1,
                   ),
                   _buildTabButton(
                     icon: '✏️',
-                    label: 'वर्कशीट',
+                    label: 'Worksheets',
                     index: 2,
                     isActive: _currentTabIndex == 2,
                   ),
                   _buildTabButton(
-                    icon: '⬆️',
-                    label: 'Upload',
+                    icon: '📚',
+                    label: 'Chapters',
                     index: 3,
                     isActive: _currentTabIndex == 3,
                   ),
+                  if (!isStudent)
+                    _buildTabButton(
+                      icon: '⬆️',
+                      label: 'Upload',
+                      index: 4,
+                      isActive: _currentTabIndex == 4,
+                    ),
                 ],
               ),
             ),
@@ -146,7 +157,8 @@ class _AcademicResourceHubScreenState
                 ResourcesViewScreen(resourceType: 'notes'),
                 ResourcesViewScreen(resourceType: 'test_papers'),
                 ResourcesViewScreen(resourceType: 'worksheets'),
-                const ResourceUploadScreen(),
+                const ChapterTrackingScreen(),
+                if (!isStudent) const ResourceUploadScreen(),
               ],
             ),
           ),

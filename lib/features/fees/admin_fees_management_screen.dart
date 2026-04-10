@@ -73,11 +73,12 @@ class _AdminFeesManagementScreenState
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('students')
+                  .collection('users')
+                  .where('role', isEqualTo: 'student')
                   .snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(child: Text('Loading fees data...'));
                 }
 
                 var students = snapshot.data!.docs
@@ -87,7 +88,7 @@ class _AdminFeesManagementScreenState
                 // Filter by class
                 if (_selectedClass != null) {
                   students = students
-                      .where((s) => s['class'].toString() == _selectedClass)
+                      .where((s) => s['studentClass']?.toString() == _selectedClass)
                       .toList();
                 }
 
@@ -95,11 +96,11 @@ class _AdminFeesManagementScreenState
                 if (_searchQuery.isNotEmpty) {
                   students = students
                       .where((s) =>
-                          (s['name'] ?? '')
+                          (s['displayName'] ?? '')
                               .toString()
                               .toLowerCase()
                               .contains(_searchQuery) ||
-                          (s['roll'] ?? '')
+                          (s['rollNumber'] ?? '')
                               .toString()
                               .toLowerCase()
                               .contains(_searchQuery))
@@ -131,7 +132,7 @@ class _AdminFeesManagementScreenState
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(16),
                         title: Text(
-                          student['name'] ?? 'Unknown',
+                          student['displayName'] ?? 'Unknown',
                           style: GoogleFonts.poppins(
                             fontWeight: FontWeight.w600,
                             fontSize: 16,
@@ -142,7 +143,7 @@ class _AdminFeesManagementScreenState
                           children: [
                             const SizedBox(height: 8),
                             Text(
-                              'Roll: ${student['roll'] ?? 'N/A'} | Class: ${student['class'] ?? 'N/A'}',
+                              'Roll: ${student['rollNumber'] ?? 'N/A'} | Class: ${student['studentClass'] ?? 'N/A'}',
                               style: GoogleFonts.poppins(fontSize: 12),
                             ),
                             const SizedBox(height: 8),
@@ -255,7 +256,7 @@ class _AdminFeesManagementScreenState
                   double.tryParse(feesPaidController.text) ?? 0;
 
               FirebaseFirestore.instance
-                  .collection('students')
+                  .collection('users')
                   .doc(docId)
                   .update({
                 'fees_total': totalFees,

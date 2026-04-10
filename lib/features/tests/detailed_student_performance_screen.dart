@@ -151,7 +151,7 @@ class _DetailedStudentPerformanceScreenState
             ),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: Text('Loading performance data...'));
           }
 
           final data = snapshot.data!;

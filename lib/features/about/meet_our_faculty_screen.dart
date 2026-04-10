@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../auth/auth_service.dart';
 
 /// Meet Our Faculty Screen - Display and manage faculty/teachers
 class MeetOurFacultyScreen extends ConsumerStatefulWidget {
@@ -15,17 +16,14 @@ class MeetOurFacultyScreen extends ConsumerStatefulWidget {
 }
 
 class _MeetOurFacultyScreenState extends ConsumerState<MeetOurFacultyScreen> {
-  bool _isAdminMode = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Check if user is admin by checking shared preferences or auth state
-    // For now, using a simple flag that can be toggled
-  }
+  String _searchQuery = '';
+  String _sortBy = 'name';
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(authProvider);
+    final isAdmin = user?.role.name == 'admin';
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -35,219 +33,307 @@ class _MeetOurFacultyScreenState extends ConsumerState<MeetOurFacultyScreen> {
         backgroundColor: AppTheme.deepBlue,
         foregroundColor: Colors.white,
         actions: [
-          Tooltip(
-            message: 'Admin Mode',
-            child: IconButton(
-              icon: Icon(_isAdminMode ? Icons.lock_open : Icons.lock),
-              onPressed: () =>
-                  setState(() => _isAdminMode = !_isAdminMode),
+          if (isAdmin)
+            Tooltip(
+              message: 'Add Faculty Member',
+              child: IconButton(
+                icon: const Icon(Icons.add),
+                onPressed: () => _showAddFacultyDialog(context),
+              ),
+            ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Search and Filter Bar
+          Container(
+            padding: const EdgeInsets.all(16),
+            color: Colors.white,
+            child: Column(
+              children: [
+                // Search Field
+                TextField(
+                  onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+                  decoration: InputDecoration(
+                    hintText: 'Search by name, subject, or designation',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Sort Options
+                Row(
+                  children: [
+                    Text(
+                      'Sort by: ',
+                      style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade700),
+                    ),
+                    const SizedBox(width: 8),
+                    _SortChip(
+                      label: 'Name',
+                      selected: _sortBy == 'name',
+                      onTap: () => setState(() => _sortBy = 'name'),
+                    ),
+                    const SizedBox(width: 8),
+                    _SortChip(
+                      label: 'Experience',
+                      selected: _sortBy == 'experience',
+                      onTap: () => setState(() => _sortBy = 'experience'),
+                    ),
+                    const SizedBox(width: 8),
+                    _SortChip(
+                      label: 'Subject',
+                      selected: _sortBy == 'subject',
+                      onTap: () => setState(() => _sortBy = 'subject'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Faculty List
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('faculty')
+                  .orderBy(_sortBy == 'experience' ? 'experience' : 'name')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: SizedBox.shrink());
+                }
+
+                var faculty = snapshot.data!.docs;
+
+                // Apply search filter
+                if (_searchQuery.isNotEmpty) {
+                  faculty = faculty.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final name = (data['name'] ?? '').toString().toLowerCase();
+                    final subject = (data['subject'] ?? '').toString().toLowerCase();
+                    final designation = (data['designation'] ?? '').toString().toLowerCase();
+                    return name.contains(_searchQuery) ||
+                           subject.contains(_searchQuery) ||
+                           designation.contains(_searchQuery);
+                  }).toList();
+                }
+
+                // Faculty Statistics
+                if (faculty.isNotEmpty) {
+                  final subjects = faculty.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    return data['subject']?.toString() ?? 'General';
+                  }).toSet();
+
+                  return Column(
+                    children: [
+                      // Statistics Card
+                      Container(
+                        margin: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [AppTheme.deepBlue, AppTheme.deepBlueDark],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _StatItem(label: 'Total Faculty', value: '${faculty.length}'),
+                            _StatItem(label: 'Subjects', value: '${subjects.length}'),
+                          ],
+                        ),
+                      ),
+                      // Faculty List
+                      Expanded(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: faculty.length,
+                          itemBuilder: (context, index) {
+                            final member = faculty[index];
+                            final data = member.data() as Map<String, dynamic>;
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              elevation: 2,
+                              child: Column(
+                                children: [
+                                  // Course Image/Avatar
+                                  Container(
+                                    width: double.infinity,
+                                    height: 200,
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.deepBlue.withValues(alpha: 0.1),
+                                      borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(12),
+                                        topRight: Radius.circular(12),
+                                      ),
+                                    ),
+                                    child: data['image_url'] != null
+                                        ? Image.network(
+                                            data['image_url'],
+                                            fit: BoxFit.cover,
+                                          )
+                                        : Icon(
+                                            Icons.person,
+                                            size: 80,
+                                            color: AppTheme.deepBlue.withValues(alpha: 0.3),
+                                          ),
+                                  ),
+                                  // Faculty Info
+                                  Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          data['name'] ?? 'Unknown',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          data['designation'] ?? 'Faculty',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 14,
+                                            color: AppTheme.deepBlue,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        if (data['subject'] != null) ...[
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.book, size: 14),
+                                              const SizedBox(width: 4),
+                                              Expanded(
+                                                child: Text(
+                                                  'Subject: ${data['subject']}',
+                                                  style: GoogleFonts.poppins(
+                                                    fontSize: 12,
+                                                    color: Colors.grey.shade700,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                        if (data['email'] != null) ...[
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.email, size: 14),
+                                              const SizedBox(width: 4),
+                                              Expanded(
+                                                child: Text(
+                                                  data['email'],
+                                                  style: GoogleFonts.poppins(
+                                                    fontSize: 12,
+                                                    color: Colors.grey.shade700,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                        if (data['experience'] != null) ...[
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.school, size: 14),
+                                              const SizedBox(width: 4),
+                                              Expanded(
+                                                child: Text(
+                                                  '${data['experience']} years experience',
+                                                  style: GoogleFonts.poppins(
+                                                    fontSize: 12,
+                                                    color: Colors.grey.shade700,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  // Admin Actions
+                                  if (isAdmin)
+                                    Padding(
+                                      padding: const EdgeInsets.all(8),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                        children: [
+                                          TextButton.icon(
+                                            onPressed: () => _showEditFacultyDialog(
+                                              context,
+                                              member.id,
+                                              data,
+                                            ),
+                                            icon: const Icon(Icons.edit),
+                                            label: const Text('Edit'),
+                                          ),
+                                          TextButton.icon(
+                                            onPressed: () => _deleteFaculty(member.id),
+                                            icon: const Icon(Icons.delete),
+                                            label: const Text('Delete'),
+                                            style: TextButton.styleFrom(
+                                              foregroundColor: Colors.red,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                } else {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.people_outline,
+                          size: 64,
+                          color: Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No faculty members added yet',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        if (isAdmin) ...[
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () => _showAddFacultyDialog(context),
+                            child: const Text('Add Faculty Member'),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }
+              },
             ),
           ),
         ],
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('faculty')
-            .orderBy('name')
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final faculty = snapshot.data!.docs;
-
-          if (faculty.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.people_outline,
-                    size: 64,
-                    color: Colors.grey.shade400,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No faculty members added yet',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                  if (_isAdminMode) ...[
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => _showAddFacultyDialog(context),
-                      child: const Text('Add Faculty Member'),
-                    ),
-                  ],
-                ],
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: faculty.length + (_isAdminMode ? 1 : 0),
-            itemBuilder: (context, index) {
-              // Add button at the bottom in admin mode
-              if (_isAdminMode && index == faculty.length) {
-                return Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: ElevatedButton.icon(
-                    onPressed: () => _showAddFacultyDialog(context),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Faculty Member'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                );
-              }
-
-              final member = faculty[index];
-              final data = member.data() as Map<String, dynamic>;
-
-              return Card(
-                margin: const EdgeInsets.only(bottom: 16),
-                elevation: 2,
-                child: Column(
-                  children: [
-                    // Course Image/Avatar
-                    Container(
-                      width: double.infinity,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        color: AppTheme.deepBlue.withValues(alpha: 0.1),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(12),
-                          topRight: Radius.circular(12),
-                        ),
-                      ),
-                      child: data['image_url'] != null
-                          ? Image.network(
-                              data['image_url'],
-                              fit: BoxFit.cover,
-                            )
-                          : Icon(
-                              Icons.person,
-                              size: 80,
-                              color: AppTheme.deepBlue.withValues(alpha: 0.3),
-                            ),
-                    ),
-                    // Faculty Info
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            data['name'] ?? 'Unknown',
-                            style: GoogleFonts.poppins(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            data['designation'] ?? 'Faculty',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: AppTheme.deepBlue,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          if (data['subject'] != null) ...[
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                const Icon(Icons.book, size: 14),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    'Subject: ${data['subject']}',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                          if (data['email'] != null) ...[
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                const Icon(Icons.email, size: 14),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    data['email'],
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                          if (data['experience'] != null) ...[
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                const Icon(Icons.school, size: 14),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    '${data['experience']} years experience',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    // Admin Actions
-                    if (_isAdminMode)
-                      Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            TextButton.icon(
-                              onPressed: () => _showEditFacultyDialog(
-                                context,
-                                member.id,
-                                data,
-                              ),
-                              icon: const Icon(Icons.edit),
-                              label: const Text('Edit'),
-                            ),
-                            TextButton.icon(
-                              onPressed: () => _deleteFaculty(member.id),
-                              icon: const Icon(Icons.delete),
-                              label: const Text('Delete'),
-                              style: TextButton.styleFrom(
-                                foregroundColor: Colors.red,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
       ),
     );
   }
@@ -496,6 +582,64 @@ class _MeetOurFacultyScreenState extends ConsumerState<MeetOurFacultyScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SortChip extends StatelessWidget {
+  const _SortChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilterChip(
+      label: Text(label, style: GoogleFonts.poppins(fontSize: 12)),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      selectedColor: AppTheme.deepBlue.withValues(alpha: 0.2),
+      checkmarkColor: AppTheme.deepBlue,
+      backgroundColor: Colors.grey.shade200,
+    );
+  }
+}
+
+class _StatItem extends StatelessWidget {
+  const _StatItem({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: GoogleFonts.poppins(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: Colors.white.withValues(alpha: 0.8),
+          ),
+        ),
+      ],
     );
   }
 }
