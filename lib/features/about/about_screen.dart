@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:mentor_classes/core/theme/app_theme.dart';
 import '../auth/auth_service.dart';
 import '../../data/erp_providers.dart';
+import '../staff/promote_class_screen.dart';
 
 /// About Mentor Classes screen.
 class AboutScreen extends ConsumerWidget {
@@ -202,7 +203,25 @@ class AboutScreen extends ConsumerWidget {
                         color: Colors.red,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTheme.deepBlue,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        onPressed: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(builder: (_) => const PromoteClassScreen()),
+                        ),
+                        icon: const Icon(Icons.trending_up),
+                        label: Text(
+                          'Promote to Next Class',
+                          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     Text(
                       'Reset all data - This action cannot be undone',
                       style: GoogleFonts.poppins(
@@ -210,7 +229,7 @@ class AboutScreen extends ConsumerWidget {
                         color: Colors.grey.shade700,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(

@@ -603,6 +603,7 @@ class ErpRepository {
     DateTime? assignedDate,
   }) async {
     final d = assignedDate ?? DateTime.now();
+    final expiryTime = DateTime.now().add(const Duration(hours: 24));
     await _homework.add({
       'classLevel': classLevel,
       'title': title.trim(),
@@ -610,6 +611,7 @@ class ErpRepository {
       'dateKey': dateKey(d),
       'assignedBy': assignedBy,
       'createdAt': FieldValue.serverTimestamp(),
+      'expiryTime': expiryTime,
     });
   }
 
@@ -623,6 +625,7 @@ class ErpRepository {
     DateTime? assignedDate,
   }) async {
     final d = assignedDate ?? DateTime.now();
+    final expiryTime = DateTime.now().add(const Duration(hours: 24));
     await _homework.add({
       'classLevel': classLevel,
       'title': title.trim(),
@@ -631,6 +634,7 @@ class ErpRepository {
       'assignedBy': assignedBy,
       'attachments': attachments, // List of {fileName, url, fileType}
       'createdAt': FieldValue.serverTimestamp(),
+      'expiryTime': expiryTime,
     });
   }
 
@@ -1434,6 +1438,7 @@ class ErpRepository {
         'assignedBy': assignedBy,
         'assignedAt': DateTime.now(),
         'lastUpdatedAt': DateTime.now(),
+        'expiryTime': DateTime.now().add(const Duration(hours: 24)),
       };
 
       // This overwrites any existing 'current' document for this class+subject

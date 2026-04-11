@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/erp_providers.dart';
 import '../auth/auth_service.dart';
-import 'chapter_tracking_screen.dart';
 import 'resource_upload_screen.dart';
 import 'resources_view_screen.dart';
 
@@ -129,18 +128,12 @@ class _AcademicResourceHubScreenState
                     index: 2,
                     isActive: _currentTabIndex == 2,
                   ),
-                  _buildTabButton(
-                    icon: '📚',
-                    label: 'Chapters',
-                    index: 3,
-                    isActive: _currentTabIndex == 3,
-                  ),
                   if (!isStudent)
                     _buildTabButton(
                       icon: '⬆️',
                       label: 'Upload',
-                      index: 4,
-                      isActive: _currentTabIndex == 4,
+                      index: 3,
+                      isActive: _currentTabIndex == 3,
                     ),
                 ],
               ),
@@ -157,7 +150,6 @@ class _AcademicResourceHubScreenState
                 ResourcesViewScreen(resourceType: 'notes'),
                 ResourcesViewScreen(resourceType: 'test_papers'),
                 ResourcesViewScreen(resourceType: 'worksheets'),
-                const ChapterTrackingScreen(),
                 if (!isStudent) const ResourceUploadScreen(),
               ],
             ),

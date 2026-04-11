@@ -7,10 +7,12 @@ import '../../core/widgets/mentor_footer.dart';
 import '../../models/user_model.dart';
 import '../../main.dart';
 import '../academic/academic_resource_hub_screen.dart';
+import '../academic/chapter_tracking_screen.dart';
 import '../announcements/announcements_staff_screen.dart';
 import '../attendance/detailed_attendance_summary_screen.dart';
 import '../attendance/teacher_attendance_screen.dart';
 import '../auth/auth_service.dart';
+import '../fees/admin_fees_panel_screen.dart';
 import '../home/staff_home_page.dart';
 import '../home/student_home_page.dart';
 import '../homework/homework_student_screen.dart';
@@ -47,6 +49,8 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
     'Leaderboard',
     'Schedule Management',
     'Homework',
+    'Chapter Progress',
+    'Admin Fees',
     'Notices',
     'Meet Faculty',
     'About',
@@ -62,6 +66,7 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
     'To-Do',
     'Attendance',
     'Homework',
+    'Chapter Progress',
     'Updates',
     'Meet Faculty',
     'About',
@@ -76,6 +81,8 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
         EnhancedLeaderboardScreen(),
         ScheduleAdminScreen(),
         HomeworkTeacherScreen(),
+        ChapterTrackingScreen(),
+        AdminFeesPanelScreen(),
         AnnouncementsStaffScreen(),
         MeetOurFacultyScreen(),
         AboutScreen(),
@@ -91,6 +98,7 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
         StudentTodoScreen(),
         DetailedAttendanceSummaryScreen(),
         HomeworkStudentScreen(),
+        ChapterTrackingScreen(),
         UpdatesCenterScreen(),
         MeetOurFacultyScreen(),
         AboutScreen(),

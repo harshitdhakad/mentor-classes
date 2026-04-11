@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/mentor_glass_card.dart';
 import '../../data/erp_providers.dart';
+import '../auth/auth_service.dart';
 
 /// Enhanced marks upload screen with class and test type selection
 class EnhancedMarksUploadScreen extends ConsumerStatefulWidget {
@@ -20,10 +22,16 @@ class _EnhancedMarksUploadScreenState
   late TextEditingController _maxMarksController;
   late TextEditingController _subjectController;
   late TextEditingController _topicController;
+  late TextEditingController _seriesIdController;
 
   int _selectedClass = 5;
   String _selectedTestType = 'weekly';
   final List<String> _testTypes = ['weekly', 'monthly', 'series'];
+  
+  // Test series specific
+  final List<String> _subjects = ['Maths', 'Science', 'English', 'SST'];
+  int _currentSubjectIndex = 0;
+  final Map<String, Map<String, Map<String, dynamic>>> _seriesMarksBySubject = {}; // subject -> {roll -> {marks, ng}}
 
   final Map<String, Map<String, dynamic>> _studentMarks = {};
   bool _isLoading = false;
@@ -35,6 +43,7 @@ class _EnhancedMarksUploadScreenState
     _maxMarksController = TextEditingController(text: '100');
     _subjectController = TextEditingController();
     _topicController = TextEditingController();
+    _seriesIdController = TextEditingController();
   }
 
   @override
@@ -43,11 +52,20 @@ class _EnhancedMarksUploadScreenState
     _maxMarksController.dispose();
     _subjectController.dispose();
     _topicController.dispose();
+    _seriesIdController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(authProvider);
+    // Prevent students from accessing this screen
+    if (user?.role.name == 'student') {
+      return const Scaffold(
+        body: Center(child: Text('Access Denied: This section is for staff only')),
+      );
+    }
+
     // Watch students for selected class
     final studentsAsync = ref.watch(studentsByClassEnhancedProvider(_selectedClass));
 
@@ -248,11 +266,101 @@ class _EnhancedMarksUploadScreenState
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
+
+            // Series ID (only for test series)
+            if (_selectedTestType == 'series')
+              MentorGlassCard(
+                padding: const EdgeInsets.all(12),
+                child: TextField(
+                  controller: _seriesIdController,
+                  decoration: InputDecoration(
+                    labelText: 'Series ID *',
+                    hintText: 'e.g., Series-2024-Q1',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                  ),
+                ),
+              ),
+            if (_selectedTestType == 'series') const SizedBox(height: 12),
+
+            // Subject Selector (only for test series)
+            if (_selectedTestType == 'series')
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Test Series Progress',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 12),
+                  // Subject progress indicator
+                  Row(
+                    children: List.generate(_subjects.length, (index) {
+                      final subject = _subjects[index];
+                      final isCompleted = index < _currentSubjectIndex;
+                      final isCurrent = index == _currentSubjectIndex;
+                      return Expanded(
+                        child: Container(
+                          margin: EdgeInsets.only(right: index < _subjects.length - 1 ? 4 : 0),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color: isCompleted
+                                ? Colors.green
+                                : isCurrent
+                                    ? AppTheme.deepBluePrimary
+                                    : Colors.grey[300],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                isCompleted ? '✓' : '${index + 1}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                subject,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Current Subject: ${_subjects[_currentSubjectIndex]}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.deepBluePrimary,
+                    ),
+                  ),
+                ],
+              ),
+            if (_selectedTestType == 'series') const SizedBox(height: 24),
 
             // Students Marks Entry
             Text(
-              'Student Marks',
+              _selectedTestType == 'series'
+                  ? '${_subjects[_currentSubjectIndex]} Marks'
+                  : 'Student Marks',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
@@ -304,7 +412,13 @@ class _EnhancedMarksUploadScreenState
                         ),
                       )
                     : const Icon(Icons.check_circle),
-                label: Text(_isLoading ? 'Saving...' : 'Save Marks'),
+                label: Text(_isLoading 
+                    ? 'Saving...' 
+                    : _selectedTestType == 'series'
+                        ? (_currentSubjectIndex == _subjects.length - 1
+                            ? 'Save Test Series'
+                            : 'Save ${_subjects[_currentSubjectIndex]} Marks')
+                        : 'Save Marks'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.deepBluePrimary,
                   disabledBackgroundColor: Colors.grey[400],
@@ -328,7 +442,7 @@ class _EnhancedMarksUploadScreenState
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       child: MentorGlassCard(
-        padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12),
       child: Row(
         children: [
           // Student Info
@@ -362,6 +476,7 @@ class _EnhancedMarksUploadScreenState
             child: TextField(
               controller: markController,
               keyboardType: TextInputType.number,
+              enabled: !isNg,
               decoration: InputDecoration(
                 hintText: 'Marks',
                 border: OutlineInputBorder(
@@ -371,6 +486,8 @@ class _EnhancedMarksUploadScreenState
                   horizontal: 8,
                   vertical: 8,
                 ),
+                filled: isNg,
+                fillColor: Colors.grey[200],
               ),
               inputFormatters: [
                 // Allow only integers
@@ -386,52 +503,67 @@ class _EnhancedMarksUploadScreenState
             ),
           ),
           const SizedBox(width: 8),
-          // NG Checkbox
-          Column(
-            children: [
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    final current = _studentMarks[student.rollNumber] ?? {'marks': 0, 'ng': false};
-                    _studentMarks[student.rollNumber] = {
-                      'marks': current['marks'] as double? ?? 0,
-                      'ng': !(current['ng'] as bool? ?? false),
-                    };
-                    if (isNg) markController.clear();
-                  });
-                },
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: isNg ? Colors.orange : Colors.grey[300]!,
-                      width: 2,
-                    ),
-                    borderRadius: BorderRadius.circular(4),
-                    color: isNg ? Colors.orange.withOpacity(0.1) : null,
-                  ),
-                  child: Center(
-                    child: Text(
-                      isNg ? 'NG' : 'OK',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: isNg ? Colors.orange : Colors.grey[400],
-                      ),
-                    ),
-                  ),
+          // NG Toggle Button (more prominent)
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                final current = _studentMarks[student.rollNumber] ?? {'marks': 0, 'ng': false};
+                _studentMarks[student.rollNumber] = {
+                  'marks': current['marks'] as double? ?? 0,
+                  'ng': !(current['ng'] as bool? ?? false),
+                };
+                if (!isNg) {
+                  markController.clear();
+                }
+              });
+            },
+            child: Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                gradient: isNg
+                    ? LinearGradient(
+                        colors: [Colors.orange.shade400, Colors.orange.shade600],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
+                border: Border.all(
+                  color: isNg ? Colors.orange : Colors.grey[300]!,
+                  width: 2,
                 ),
+                borderRadius: BorderRadius.circular(8),
+                color: isNg ? null : Colors.grey[100],
+                boxShadow: isNg
+                    ? [
+                        BoxShadow(
+                          color: Colors.orange.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
               ),
-              const SizedBox(height: 4),
-              Text(
-                'NG',
-                style: TextStyle(
-                  fontSize: 9,
-                  color: Colors.grey[500],
-                ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    isNg ? Icons.close_rounded : Icons.check_circle_rounded,
+                    color: isNg ? Colors.white : Colors.grey[500],
+                    size: 20,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isNg ? 'NG' : 'Give',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: isNg ? Colors.white : Colors.grey[600],
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ],
       ),
@@ -443,6 +575,13 @@ class _EnhancedMarksUploadScreenState
     if (_testNameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter test name')),
+      );
+      return;
+    }
+
+    if (_selectedTestType == 'series' && _seriesIdController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter Series ID')),
       );
       return;
     }
@@ -513,7 +652,56 @@ class _EnhancedMarksUploadScreenState
         }
       }
 
-      // Save to Firestore
+      // Handle test series flow
+      if (_selectedTestType == 'series') {
+        final currentSubject = _subjects[_currentSubjectIndex];
+        
+        // Save current subject marks to series data
+        _seriesMarksBySubject[currentSubject] = {
+          for (final entry in _studentMarks.entries)
+            entry.key: {
+              'marks': (entry.value['marks'] as int?) ?? 0,
+              'ng': (entry.value['ng'] as bool?) ?? false,
+            }
+        };
+
+        // Generate clipboard summary
+        final clipboardText = _generateClipboardSummary(currentSubject, marksByRoll, notGivenRolls, ranksByRoll, maxMarks);
+        
+        // Copy to clipboard
+        await Clipboard.setData(ClipboardData(text: clipboardText));
+
+        if (_currentSubjectIndex < _subjects.length - 1) {
+          // Move to next subject
+          if (mounted) {
+            setState(() {
+              _studentMarks.clear();
+              _currentSubjectIndex++;
+              _isLoading = false;
+            });
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('✅ $currentSubject marks saved! Copied to clipboard. Next: ${_subjects[_currentSubjectIndex]}'),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 3),
+                action: SnackBarAction(
+                  label: 'OK',
+                  textColor: Colors.white,
+                  onPressed: () {},
+                ),
+              ),
+            );
+          }
+          return;
+        } else {
+          // All subjects done, save test series to Firestore
+          await _saveTestSeriesToFirestore(repo, maxMarks);
+          return;
+        }
+      }
+
+      // Single test save
       await repo.saveTestMarksExtended(
         classLevel: _selectedClass,
         subject: _subjectController.text.isEmpty ? 'General' : _subjectController.text,
@@ -528,8 +716,15 @@ class _EnhancedMarksUploadScreenState
         savedBy: 'teacher@mentorclasses.com', // TODO: Get from auth
       );
 
-      // Add testType to the saved data (extend repo method if needed)
-      // For now we'll just show success
+      // Generate and copy clipboard summary for single test
+      final clipboardText = _generateClipboardSummary(
+        _subjectController.text.isEmpty ? 'General' : _subjectController.text,
+        marksByRoll,
+        notGivenRolls,
+        ranksByRoll,
+        maxMarks,
+      );
+      await Clipboard.setData(ClipboardData(text: clipboardText));
 
       if (mounted) {
         // Reset form
@@ -544,8 +739,9 @@ class _EnhancedMarksUploadScreenState
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Marks saved successfully!'),
+            content: Text('✅ Marks saved successfully! Copied to clipboard.'),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
           ),
         );
 
@@ -562,5 +758,167 @@ class _EnhancedMarksUploadScreenState
       }
       setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _saveTestSeriesToFirestore(dynamic repo, int maxMarks) async {
+    final seriesId = _seriesIdController.text;
+    
+    // Save each subject as a separate test document
+    for (final subject in _subjects) {
+      final subjectMarks = _seriesMarksBySubject[subject] ?? {};
+      
+      final marksByRoll = <String, double>{};
+      final notGivenRolls = <String>[];
+      
+      for (final entry in subjectMarks.entries) {
+        final isNg = (entry.value['ng'] as bool?) ?? false;
+        if (isNg) {
+          notGivenRolls.add(entry.key);
+        } else {
+          marksByRoll[entry.key] = (entry.value['marks'] as int?)?.toDouble() ?? 0;
+        }
+      }
+      
+      // Calculate ranks for this subject
+      final percentageByRoll = <String, double>{};
+      for (final entry in marksByRoll.entries) {
+        percentageByRoll[entry.key] = (entry.value / maxMarks) * 100;
+      }
+      
+      final ranksByRoll = <String, int>{};
+      if (percentageByRoll.isNotEmpty) {
+        final sorted = percentageByRoll.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+        
+        for (int i = 0; i < sorted.length; i++) {
+          ranksByRoll[sorted[i].key] = i + 1;
+        }
+      }
+      
+      await repo.saveTestMarksExtended(
+        classLevel: _selectedClass,
+        subject: subject,
+        topic: _topicController.text.isEmpty ? '—' : _topicController.text,
+        testName: '${_testNameController.text} - $subject',
+        testKind: 'series',
+        seriesId: seriesId,
+        date: DateTime.now(),
+        maxMarks: maxMarks.toDouble(),
+        marksByRoll: marksByRoll,
+        notGivenRolls: notGivenRolls,
+        savedBy: 'teacher@mentorclasses.com',
+      );
+    }
+    
+    // Generate overall clipboard summary
+    final overallClipboard = _generateSeriesClipboardSummary(maxMarks);
+    await Clipboard.setData(ClipboardData(text: overallClipboard));
+    
+    if (mounted) {
+      // Reset form
+      _testNameController.clear();
+      _subjectController.clear();
+      _topicController.clear();
+      _seriesIdController.clear();
+      _maxMarksController.text = '100';
+      setState(() {
+        _studentMarks.clear();
+        _seriesMarksBySubject.clear();
+        _currentSubjectIndex = 0;
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Test Series saved successfully! Overall summary copied to clipboard.'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+
+      // Refresh data
+      ref.refresh(
+        testMarksForClassProvider((_selectedClass, 'series', seriesId)),
+      );
+    }
+  }
+
+  String _generateClipboardSummary(String subject, Map<String, double> marksByRoll, List<String> notGivenRolls, Map<String, int> ranksByRoll, int maxMarks) {
+    final buffer = StringBuffer();
+    buffer.writeln('═══════════════════════════════════════');
+    buffer.writeln('TEST MARKS SUMMARY');
+    buffer.writeln('═══════════════════════════════════════');
+    buffer.writeln('Test: ${_testNameController.text}');
+    buffer.writeln('Subject: $subject');
+    buffer.writeln('Class: $_selectedClass');
+    buffer.writeln('Max Marks: $maxMarks');
+    buffer.writeln('Date: ${DateTime.now().toString().split(' ')[0]}');
+    buffer.writeln('═══════════════════════════════════════');
+    buffer.writeln('RANK | ROLL NO | MARKS | STATUS');
+    buffer.writeln('─────────────────────────────────────');
+    
+    final sortedEntries = marksByRoll.entries.toList()
+      ..sort((a, b) => (ranksByRoll[a.key] ?? 999).compareTo(ranksByRoll[b.key] ?? 999));
+    
+    for (final entry in sortedEntries) {
+      final roll = entry.key;
+      final marks = entry.value.toInt();
+      final rank = ranksByRoll[roll] ?? '-';
+      buffer.writeln('$rank | $roll | $marks/$maxMarks | ${notGivenRolls.contains(roll) ? 'ABSENT' : 'PRESENT'}');
+    }
+    
+    for (final roll in notGivenRolls) {
+      if (!marksByRoll.containsKey(roll)) {
+        buffer.writeln('— | $roll | NG | ABSENT');
+      }
+    }
+    
+    buffer.writeln('═══════════════════════════════════════');
+    buffer.writeln('Total Students: ${marksByRoll.length + notGivenRolls.length}');
+    buffer.writeln('Present: ${marksByRoll.length}');
+    buffer.writeln('Absent: ${notGivenRolls.length}');
+    buffer.writeln('═══════════════════════════════════════');
+    
+    return buffer.toString();
+  }
+
+  String _generateSeriesClipboardSummary(int maxMarks) {
+    final buffer = StringBuffer();
+    buffer.writeln('═══════════════════════════════════════');
+    buffer.writeln('TEST SERIES OVERALL SUMMARY');
+    buffer.writeln('═══════════════════════════════════════');
+    buffer.writeln('Series: ${_testNameController.text}');
+    buffer.writeln('Series ID: ${_seriesIdController.text}');
+    buffer.writeln('Class: $_selectedClass');
+    buffer.writeln('Max Marks per Subject: $maxMarks');
+    buffer.writeln('Date: ${DateTime.now().toString().split(' ')[0]}');
+    buffer.writeln('═══════════════════════════════════════');
+    
+    for (final subject in _subjects) {
+      final subjectMarks = _seriesMarksBySubject[subject] ?? {};
+      buffer.writeln('\n--- $subject ---');
+      buffer.writeln('Students marked: ${subjectMarks.length}');
+      
+      int presentCount = 0;
+      int absentCount = 0;
+      
+      for (final entry in subjectMarks.entries) {
+        final isNg = (entry.value['ng'] as bool?) ?? false;
+        if (isNg) {
+          absentCount++;
+        } else {
+          presentCount++;
+        }
+      }
+      
+      buffer.writeln('Present: $presentCount');
+      buffer.writeln('Absent: $absentCount');
+    }
+    
+    buffer.writeln('\n═══════════════════════════════════════');
+    buffer.writeln('Total Subjects: ${_subjects.length}');
+    buffer.writeln('═══════════════════════════════════════');
+    
+    return buffer.toString();
   }
 }

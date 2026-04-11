@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/mentor_glass_card.dart';
 import '../../models/user_model.dart';
 import '../auth/auth_service.dart';
 import '../staff/bulk_upload_screen.dart';
-import '../staff/promote_class_screen.dart';
 import 'widgets/staff_class_performance_widget.dart';
 
 /// Staff dashboard body (embedded in [MainShellScreen]).
@@ -100,6 +100,85 @@ class _StaffHomePageState extends ConsumerState<StaffHomePage> {
             ),
           ),
           const SizedBox(height: 24),
+          // Today's Attendance Status
+          Text(
+            'Today\'s Attendance',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.deepBlue,
+            ),
+          ),
+          const SizedBox(height: 12),
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('attendance')
+                .where('classLevel', isEqualTo: _selectedClass)
+                .where('date', isEqualTo: DateTime.now().toString().split(' ')[0])
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: Text('Loading...'),
+                );
+              }
+              if (snapshot.hasError) {
+                return const Center(
+                  child: Text('Error loading attendance'),
+                );
+              }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Center(
+                      child: Text(
+                        'object-not-found',
+                        style: GoogleFonts.poppins(fontSize: 14),
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              final attendanceDoc = snapshot.data!.docs.first;
+              final data = attendanceDoc.data() as Map<String, dynamic>;
+              final presentCount = (data['present'] as List?)?.length ?? 0;
+              final absentCount = (data['absent'] as List?)?.length ?? 0;
+
+              return Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.grey.shade300),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _AttendanceStat(
+                        label: 'Present',
+                        count: presentCount,
+                        color: Colors.green,
+                      ),
+                      _AttendanceStat(
+                        label: 'Absent',
+                        count: absentCount,
+                        color: Colors.red,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 24),
           if (user.role == UserRole.admin) ...[
             _HomeCard(
               icon: Icons.groups_2_outlined,
@@ -107,15 +186,6 @@ class _StaffHomePageState extends ConsumerState<StaffHomePage> {
               subtitle: 'Excel → Firestore (incl. mobile & emergency contact).',
               onTap: () => Navigator.of(context).push<void>(
                 MaterialPageRoute<void>(builder: (_) => const BulkUploadScreen()),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _HomeCard(
-              icon: Icons.trending_up,
-              title: 'Promote to next class',
-              subtitle: 'Move an entire class up one level; fees reset for new session.',
-              onTap: () => Navigator.of(context).push<void>(
-                MaterialPageRoute<void>(builder: (_) => const PromoteClassScreen()),
               ),
             ),
             const SizedBox(height: 12),
@@ -173,6 +243,41 @@ class _HomeCard extends StatelessWidget {
         trailing: const Icon(Icons.chevron_right),
         onTap: onTap,
       ),
+    );
+  }
+}
+
+class _AttendanceStat extends StatelessWidget {
+  const _AttendanceStat({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
+
+  final String label;
+  final int count;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          count.toString(),
+          style: GoogleFonts.poppins(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+          ),
+        ),
+      ],
     );
   }
 }

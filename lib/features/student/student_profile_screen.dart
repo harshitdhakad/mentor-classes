@@ -16,77 +16,9 @@ class StudentProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
-  bool _loading = true;
-  Map<String, dynamic>? _studentData;
-  Map<String, dynamic>? _feesData;
-  int _attendancePresent = 0;
-  int _attendanceTotal = 0;
-
   @override
   void initState() {
     super.initState();
-    _loadStudentData();
-  }
-
-  Future<void> _loadStudentData() async {
-    final user = ref.read(authProvider);
-    if (user == null) return;
-
-    setState(() => _loading = true);
-
-    try {
-      // Fetch student data from users collection
-      final studentDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.id)
-          .get();
-
-      if (studentDoc.exists) {
-        setState(() {
-          _studentData = studentDoc.data();
-        });
-      }
-
-      // Fetch fees data
-      final feesDoc = await FirebaseFirestore.instance
-          .collection('students')
-          .doc(user.id)
-          .get();
-
-      if (feesDoc.exists) {
-        setState(() {
-          _feesData = feesDoc.data();
-        });
-      }
-
-      // Fetch attendance data
-      final attendanceSnap = await FirebaseFirestore.instance
-          .collection('attendance')
-          .where('classLevel', isEqualTo: user.studentClass)
-          .get();
-
-      int present = 0;
-      int total = 0;
-
-      for (final doc in attendanceSnap.docs) {
-        final records = doc.data()['records'] as Map<String, dynamic>?;
-        if (records != null && records.containsKey(user.rollNumber)) {
-          total++;
-          if (records[user.rollNumber] == true) {
-            present++;
-          }
-        }
-      }
-
-      setState(() {
-        _attendancePresent = present;
-        _attendanceTotal = total;
-      });
-    } catch (e) {
-      debugPrint('Error loading student data: $e');
-    } finally {
-      setState(() => _loading = false);
-    }
   }
 
   @override
@@ -109,45 +41,94 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
         backgroundColor: AppTheme.deepBlue,
         foregroundColor: Colors.white,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Profile Header Card
-                  Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 45,
-                            backgroundColor: AppTheme.deepBlue,
-                            child: Text(
-                              (user.displayName ?? 'S')[0].toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 28,
-                              ),
-                            ),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.id)
+            .snapshots(),
+        builder: (context, studentSnapshot) {
+          if (studentSnapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (studentSnapshot.hasError) {
+            return const Center(child: Text('Error loading data'));
+          }
+          if (!studentSnapshot.hasData || !studentSnapshot.data!.exists) {
+            return const Center(child: Text('Student data not found'));
+          }
+
+          final studentData = studentSnapshot.data!.data();
+
+          return StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('students')
+                .doc(user.id)
+                .snapshots(),
+            builder: (context, feesSnapshot) {
+              final feesData = feesSnapshot.data?.data();
+
+              return StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('attendance')
+                    .where('classLevel', isEqualTo: user.studentClass)
+                    .snapshots(),
+                builder: (context, attendanceSnapshot) {
+                  int present = 0;
+                  int total = 0;
+
+                  if (attendanceSnapshot.hasData) {
+                    for (final doc in attendanceSnapshot.data!.docs) {
+                      final data = doc.data();
+                      if (data == null) continue;
+                      final records = (data as Map<String, dynamic>)['records'] as Map<String, dynamic>?;
+                      if (records != null && records.containsKey(user.rollNumber)) {
+                        total++;
+                        if (records[user.rollNumber] == true) {
+                          present++;
+                        }
+                      }
+                    }
+                  }
+
+                  final attendancePercentage = total > 0 ? (present / total * 100).toStringAsFixed(1) : '0.0';
+
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Profile Header Card
+                        Card(
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
                           ),
-                          const SizedBox(width: 20),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Row(
                               children: [
-                                Text(
-                                  user.displayName ?? 'Unknown',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w700,
+                                CircleAvatar(
+                                  radius: 45,
+                                  backgroundColor: AppTheme.deepBlue,
+                                  child: Text(
+                                    (user.displayName ?? 'S')[0].toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 28,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 20),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        user.displayName ?? 'Unknown',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -188,8 +169,6 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
                   _buildInfoCard('Roll Number', user.rollNumber ?? 'N/A'),
                   _buildInfoCard('Class', '${user.studentClass ?? 'N/A'}'),
                   _buildInfoCard('Email', user.email ?? 'N/A'),
-                  _buildInfoCard('Mobile', _studentData?['mobileNumber'] ?? 'N/A'),
-                  _buildInfoCard('Password', _studentData?['password'] ?? 'N/A'),
                   const SizedBox(height: 24),
 
                   // Fees Section
@@ -212,11 +191,11 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         children: [
-                          _buildFeesRow('Total Fees', '${_feesData?['total_fees'] ?? 'N/A'}'),
+                          _buildFeesRow('Total Fees', '${(feesData as Map<String, dynamic>?)?['total_fees'] ?? 'N/A'}'),
                           const Divider(),
-                          _buildFeesRow('Fees Paid', '${(_feesData?['total_fees'] ?? 0) - (_feesData?['remaining_fees'] ?? 0)}'),
+                          _buildFeesRow('Fees Paid', '${((feesData as Map<String, dynamic>?)?['total_fees'] ?? 0) - ((feesData as Map<String, dynamic>?)?['remaining_fees'] ?? 0)}'),
                           const Divider(),
-                          _buildFeesRow('Remaining Fees', '${_feesData?['remaining_fees'] ?? 'N/A'}', isRemaining: true),
+                          _buildFeesRow('Remaining Fees', '${(feesData as Map<String, dynamic>?)?['remaining_fees'] ?? 'N/A'}', isRemaining: true),
                         ],
                       ),
                     ),
@@ -243,24 +222,24 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         children: [
-                          _buildAttendanceRow('Total Classes', '$_attendanceTotal'),
+                          _buildAttendanceRow('Total Classes', '$total'),
                           const Divider(),
-                          _buildAttendanceRow('Present', '$_attendancePresent', color: Colors.green),
+                          _buildAttendanceRow('Present', '$present', color: Colors.green),
                           const Divider(),
-                          _buildAttendanceRow('Absent', '${_attendanceTotal - _attendancePresent}', color: Colors.red),
+                          _buildAttendanceRow('Absent', '${total - present}', color: Colors.red),
                           const SizedBox(height: 12),
-                          if (_attendanceTotal > 0)
+                          if (total > 0)
                             LinearProgressIndicator(
-                              value: _attendanceTotal > 0 ? _attendancePresent / _attendanceTotal : 0,
+                              value: total > 0 ? present / total : 0,
                               minHeight: 8,
                               backgroundColor: Colors.grey.shade300,
                               valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
                             ),
-                          if (_attendanceTotal > 0)
+                          if (total > 0)
                             const SizedBox(height: 8),
-                          if (_attendanceTotal > 0)
+                          if (total > 0)
                             Text(
-                              'Attendance: ${((_attendancePresent / _attendanceTotal) * 100).toStringAsFixed(1)}%',
+                              'Attendance: $attendancePercentage%',
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -283,10 +262,16 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _buildInfoCard('Guardian', _studentData?['emergencyContact'] ?? 'N/A'),
+                  _buildInfoCard('Guardian', (studentData as Map<String, dynamic>?)?['emergencyContact'] ?? 'N/A'),
                 ],
               ),
-            ),
+            );
+                },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 

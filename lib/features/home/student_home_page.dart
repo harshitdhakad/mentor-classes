@@ -7,7 +7,6 @@ import '../../core/theme/app_theme.dart';
 import '../../data/erp_providers.dart';
 import '../../data/erp_repository.dart';
 import '../../data/ncert_topics_placeholder.dart';
-import '../../models/syllabus_tracker_model.dart';
 import '../../models/user_model.dart';
 import '../auth/auth_service.dart';
 import 'widgets/student_progress_widget.dart';
@@ -170,6 +169,106 @@ class StudentHomePage extends ConsumerWidget {
                           fontWeight: FontWeight.w600,
                           color: isPresent ? Colors.green : Colors.red,
                         ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          if (hasClass) const SizedBox(height: 20),
+          
+          // Student's Own Fee Status
+          if (hasClass)
+            StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('students')
+                  .doc(user.id)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: Text('Loading...'));
+                }
+                if (snapshot.hasError) {
+                  return const Center(child: Text('Error loading fees'));
+                }
+                if (!snapshot.hasData || !snapshot.data!.exists) {
+                  return const SizedBox.shrink();
+                }
+
+                final data = snapshot.data!.data() as Map<String, dynamic>;
+                final totalFees = (data['total_fees'] as num?)?.toDouble() ?? 0.0;
+                final remainingFees = (data['remaining_fees'] as num?)?.toDouble() ?? totalFees;
+                final paidFees = totalFees - remainingFees;
+                final percentage = totalFees > 0 ? (paidFees / totalFees * 100).toInt() : 0;
+
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Fee Status',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.deepBlue,
+                            ),
+                          ),
+                          Text(
+                            '$percentage%',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: percentage == 100
+                                  ? Colors.green
+                                  : percentage > 50
+                                      ? Colors.orange
+                                      : Colors.red,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      LinearProgressIndicator(
+                        value: percentage / 100,
+                        backgroundColor: Colors.grey.shade200,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          percentage == 100
+                              ? Colors.green
+                              : percentage > 50
+                                  ? Colors.orange
+                                  : Colors.red,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Paid: ₹${paidFees.toInt()}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: Colors.green,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            'Pending: ₹${remainingFees.toInt()}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: remainingFees > 0 ? Colors.red : Colors.green,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

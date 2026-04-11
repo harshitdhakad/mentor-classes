@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -73,12 +75,73 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
     }
   }
 
+  Future<void> _cleanupOldHomework() async {
+    debugPrint('🧹 Starting auto-delete homework cleanup...');
+    
+    try {
+      // Fetch ALL homework documents from Firestore
+      final homeworkSnapshot = await FirebaseFirestore.instance
+          .collection('homework')
+          .get();
+      
+      debugPrint('📊 Found ${homeworkSnapshot.docs.length} homework documents');
+      
+      final today = DateTime.now();
+      final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+      debugPrint('📅 Today\'s date: $todayStr');
+      
+      int deletedCount = 0;
+      int failedCount = 0;
+      
+      for (final doc in homeworkSnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final uploadDate = data['uploadDate'] as String?;
+        final fileUrl = data['fileUrl'] as String?;
+        
+        if (uploadDate == null || fileUrl == null) {
+          debugPrint('⚠️ Skipping document ${doc.id} - missing uploadDate or fileUrl');
+          continue;
+        }
+        
+        // Check if uploadDate is NOT today
+        if (uploadDate != todayStr) {
+          debugPrint('🗑️ Old homework found - uploadDate: $uploadDate, fileUrl: $fileUrl');
+          
+          try {
+            // Delete file from Firebase Storage
+            final storageRef = FirebaseStorage.instance.refFromURL(fileUrl);
+            await storageRef.delete();
+            debugPrint('✅ Deleted file from Storage: ${doc.id}');
+            
+            // Delete document from Firestore
+            await doc.reference.delete();
+            debugPrint('✅ Deleted document from Firestore: ${doc.id}');
+            
+            deletedCount++;
+          } catch (e) {
+            debugPrint('❌ Failed to delete ${doc.id}: $e');
+            failedCount++;
+          }
+        }
+      }
+      
+      debugPrint('🧹 Cleanup complete - Deleted: $deletedCount, Failed: $failedCount');
+    } catch (e) {
+      debugPrint('❌ Cleanup failed with error: $e');
+      debugPrint('❌ Error type: ${e.runtimeType}');
+    }
+  }
+
   Future<void> _save() async {
     final user = ref.read(authProvider);
     if (user == null || !user.isStaff || user.email == null) return;
 
     setState(() => _saving = true);
     try {
+      // STEP 1: Trigger auto-delete homework cleanup
+      await _cleanupOldHomework();
+      
+      // STEP 2: Save attendance
       await ref.read(erpRepositoryProvider).saveAttendance(
             classLevel: _classLevel,
             date: DateTime(_date.year, _date.month, _date.day),
@@ -87,15 +150,17 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
             presentByRoll: Map<String, bool>.from(_present),
             savedByEmail: user.email!,
           );
+      
       // Update current homework date if different
       final currentHomeworkDate = ref.read(currentHomeworkDateProvider);
       if (!DateUtils.isSameDay(currentHomeworkDate, _date)) {
         ref.read(currentHomeworkDateProvider.notifier).setDate(_date);
       }
+      
       if (mounted) {
         setState(() => _attendanceJustSaved = true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Attendance saved. Share with group?')),
+          const SnackBar(content: Text('Attendance saved. Old homework cleaned up.')),
         );
       }
     } catch (e) {

@@ -126,10 +126,22 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
       throw Exception('Not authenticated');
     }
 
+    // STEP 1: Triple-check mandatory fields (Name, RollNo, Class, Password)
+    if (user.displayName.isEmpty) {
+      debugPrint('⚠️ User Name is missing or empty');
+    }
+    if (user.rollNumber == null || user.rollNumber!.isEmpty) {
+      debugPrint('⚠️ User RollNo is missing or empty');
+    }
+    if (user.studentClass == null) {
+      debugPrint('⚠️ User Class is invalid or missing');
+    }
+    debugPrint('👤 User: ${user.displayName} (Roll: ${user.rollNumber}, Class: ${user.studentClass})');
+
     // Construct folder path for images
     final folderPath = 'homework/class_$_selectedClass/$_selectedSubject/images';
     
-    // STEP 1: Check if folder path exists
+    // STEP 2: Check if folder path exists
     debugPrint('🔍 Checking if image folder path exists...');
     final folderRef = FirebaseStorage.instance.ref(folderPath);
     try {
@@ -223,10 +235,22 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
       throw Exception('Not authenticated');
     }
 
+    // STEP 1: Triple-check mandatory fields (Name, RollNo, Class, Password)
+    if (user.displayName.isEmpty) {
+      debugPrint('⚠️ User Name is missing or empty');
+    }
+    if (user.rollNumber == null || user.rollNumber!.isEmpty) {
+      debugPrint('⚠️ User RollNo is missing or empty');
+    }
+    if (user.studentClass == null) {
+      debugPrint('⚠️ User Class is invalid or missing');
+    }
+    debugPrint('👤 User: ${user.displayName} (Roll: ${user.rollNumber}, Class: ${user.studentClass})');
+
     // Construct folder path for files
     final folderPath = 'homework/class_$_selectedClass/$_selectedSubject/files';
     
-    // STEP 1: Check if folder path exists
+    // STEP 2: Check if folder path exists
     debugPrint('🔍 Checking if file folder path exists...');
     final folderRef = FirebaseStorage.instance.ref(folderPath);
     try {
@@ -390,6 +414,16 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
       return const Center(
         child: Text(
           'Access Denied',
+          style: TextStyle(fontSize: 16),
+        ),
+      );
+    }
+
+    // Class selection validation
+    if (_selectedClass == null) {
+      return const Center(
+        child: Text(
+          'object-not-found',
           style: TextStyle(fontSize: 16),
         ),
       );

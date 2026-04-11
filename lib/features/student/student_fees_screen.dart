@@ -1,10 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../../data/erp_providers.dart';
 import '../auth/auth_service.dart';
 
 /// Student view: personal fees information (private to own account only).
@@ -16,46 +16,7 @@ class StudentFeesScreen extends ConsumerStatefulWidget {
 }
 
 class _StudentFeesScreenState extends ConsumerState<StudentFeesScreen> {
-  bool _loading = true;
-  double _totalFees = 0;
-  double _paidFees = 0;
-  double _remainingFees = 0;
-  DateTime? _lastUpdated;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadFees();
-  }
-
-  Future<void> _loadFees() async {
-    setState(() => _loading = true);
-    try {
-      final user = ref.read(authProvider);
-      if (user == null || user.role.name != 'student') {
-        throw 'Access denied: Students only';
-      }
-
-      final repo = ref.read(erpRepositoryProvider);
-      final data = await repo.getStudentWithFees(user.id);
-      if (data != null) {
-        final totalFees = _parseDouble(data['total_fees'] ?? 0);
-        final remainingFees = _parseDouble(data['remaining_fees'] ?? totalFees);
-        _totalFees = totalFees;
-        _remainingFees = remainingFees;
-        _paidFees = (totalFees - remainingFees).clamp(0.0, totalFees);
-        _lastUpdated = (data['fees_updated_at'] as dynamic)?.toDate() as DateTime?;
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading fees: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
+  final _currencyFormatter = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
 
   double _parseDouble(dynamic value) {
     if (value is double) return value;
@@ -68,179 +29,165 @@ class _StudentFeesScreenState extends ConsumerState<StudentFeesScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider);
 
+    if (user == null || user.role.name != 'student') {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('My Fees'),
+          elevation: 0,
+        ),
+        body: Center(
+          child: Text(
+            'This section is for students only',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Fees'),
         elevation: 0,
       ),
-      body: _loading
-          ? const Center(child: Text('Loading fees data...'))
-          : user?.role.name != 'student'
-              ? Center(
-                  child: Text(
-                    'This section is for students only',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Main Fees Summary Card
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            children: [
-                              CircleAvatar(
-                                radius: 60,
-                                backgroundColor: AppTheme.lightGrey,
-                                child: Text(
-                                  '₹',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 40,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.deepBlue,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              Text(
-                                'Fees Summary',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.darkGrey,
-                                ),
-                              ),
-                              const SizedBox(height: 32),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('students')
+            .doc(user.id)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: Text('Loading...'));
+          }
+          if (snapshot.hasError) {
+            return const Center(child: Text('Error loading fees data'));
+          }
+          if (!snapshot.hasData || !snapshot.data!.exists) {
+            return const Center(child: Text('No fees data available'));
+          }
 
-                              // Total Fees
-                              _FeesSummaryRow(
-                                label: 'Total Fees',
-                                amount: _totalFees,
-                                color: AppTheme.infoBlue,
-                              ),
-                              const SizedBox(height: 16),
+          final data = snapshot.data!.data() as Map<String, dynamic>;
+          final totalFees = _parseDouble(data['total_fees'] ?? 0);
+          final remainingFees = _parseDouble(data['remaining_fees'] ?? totalFees);
+          final paidFees = (totalFees - remainingFees).clamp(0.0, totalFees);
+          final lastUpdated = (data['fees_updated_at'] as dynamic)?.toDate() as DateTime?;
 
-                              // Amount Paid
-                              _FeesSummaryRow(
-                                label: 'Amount Paid',
-                                amount: _paidFees,
-                                color: AppTheme.successGreen,
-                              ),
-                              const SizedBox(height: 16),
-
-                              // Pending/Remaining
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: _remainingFees > 0
-                                      ? Colors.red.shade50
-                                      : Colors.green.shade50,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: _remainingFees > 0
-                                        ? Colors.red.shade200
-                                        : Colors.green.shade200,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      'Pending Amount',
-                                      style: GoogleFonts.poppins(
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.darkGrey,
-                                      ),
-                                    ),
-                                    Text(
-                                      '₹${_remainingFees.toStringAsFixed(2)}',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w700,
-                                        color: _remainingFees > 0
-                                            ? Colors.red.shade700
-                                            : Colors.green.shade700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Payment Status
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    _remainingFees == 0
-                                        ? Icons.check_circle
-                                        : Icons.info,
-                                    color: _remainingFees == 0
-                                        ? AppTheme.successGreen
-                                        : AppTheme.warningOrange,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      _remainingFees == 0
-                                          ? 'Payment Complete'
-                                          : 'Pending Payment',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.darkGrey,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                _remainingFees == 0
-                                    ? 'All fees have been paid. Thank you!'
-                                    : '₹${_remainingFees.toStringAsFixed(2)} remaining. Please contact the office for payment details.',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 13,
-                                  height: 1.5,
-                                  color: AppTheme.mediumGrey,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Last Updated
-                      if (_lastUpdated != null)
-                        Align(
-                          alignment: Alignment.center,
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Main Fees Summary Card
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 60,
+                          backgroundColor: AppTheme.lightGrey,
                           child: Text(
-                            'Last updated: ${DateFormat('d MMM yyyy, h:mm a').format(_lastUpdated!)}',
+                            '₹',
                             style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              color: AppTheme.mediumGrey,
+                              fontSize: 40,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.deepBlue,
                             ),
                           ),
                         ),
-                      const SizedBox(height: 40),
-                    ],
+                        const SizedBox(height: 20),
+                        Text(
+                          'Fees Summary',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.darkGrey,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Total Fees
+                        _FeesSummaryRow(
+                          label: 'Total Fees',
+                          amount: totalFees,
+                          color: AppTheme.infoBlue,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Amount Paid
+                        _FeesSummaryRow(
+                          label: 'Amount Paid',
+                          amount: paidFees,
+                          color: AppTheme.successGreen,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Pending/Remaining
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: remainingFees > 0
+                                ? Colors.red.shade50
+                                : Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: remainingFees > 0
+                                  ? Colors.red.shade200
+                                  : Colors.green.shade200,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Pending Amount',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.darkGrey,
+                                ),
+                              ),
+                              Text(
+                                '₹${remainingFees.toStringAsFixed(2)}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: remainingFees > 0
+                                      ? Colors.red.shade700
+                                      : Colors.green.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
+                const SizedBox(height: 24),
+
+                // Last Updated Info
+                if (lastUpdated != null)
+                  Card(
+                    color: Colors.blue.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Last updated: ${DateFormat('MMM dd, yyyy').format(lastUpdated)}',
+                            style: GoogleFonts.poppins(fontSize: 12, color: Colors.blue.shade700),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

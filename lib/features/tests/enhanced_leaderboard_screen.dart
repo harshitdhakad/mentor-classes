@@ -7,6 +7,8 @@ import '../../core/theme/app_theme.dart';
 import '../../models/user_model.dart';
 import '../auth/auth_service.dart';
 
+typedef UserModel = AppUser;
+
 /// Enhanced leaderboard with test series support and performance categorization
 class EnhancedLeaderboardScreen extends ConsumerStatefulWidget {
   const EnhancedLeaderboardScreen({super.key});
@@ -19,46 +21,15 @@ class _EnhancedLeaderboardScreenState extends ConsumerState<EnhancedLeaderboardS
   late TabController _tabController;
   int _selectedClass = 5;
   String _selectedTest = '';
-  List<String> _testNames = [];
-  List<String> _seriesNames = [];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _loadTests();
-  }
-
-  Future<void> _loadTests() async {
-    final db = FirebaseFirestore.instance;
     final user = ref.read(authProvider);
-    if (user == null) return;
-
-    final classLevel = _selectedClass;
-
-    // Get all test names
-    final testsSnap = await db
-        .collection('test_marks')
-        .where('classLevel', isEqualTo: classLevel)
-        .orderBy('createdAt', descending: true)
-        .limit(20)
-        .get();
-
-    final tests = <String>{};
-    final series = <String>{};
-
-    for (final doc in testsSnap.docs) {
-      tests.add(doc.data()['testName'] ?? '');
-      if (doc.data()['testKind'] == 'series') {
-        series.add(doc.data()['seriesId'] ?? '');
-      }
+    if (user != null && user.role.name == 'student' && user.studentClass != null) {
+      _selectedClass = user.studentClass!;
     }
-
-    setState(() {
-      _testNames = tests.where((e) => e.isNotEmpty).toList();
-      _seriesNames = series.where((e) => e.isNotEmpty).toList();
-      if (_testNames.isNotEmpty) _selectedTest = _testNames.first;
-    });
   }
 
   @override
@@ -70,6 +41,7 @@ class _EnhancedLeaderboardScreenState extends ConsumerState<EnhancedLeaderboardS
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider);
+    final isStudent = user?.role.name == 'student';
     
     return DefaultTabController(
       length: 3,
@@ -82,38 +54,38 @@ class _EnhancedLeaderboardScreenState extends ConsumerState<EnhancedLeaderboardS
             preferredSize: const Size.fromHeight(100),
             child: Column(
               children: [
-                // Class Selector
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: List.generate(6, (index) {
-                        final classNum = index + 5;
-                        final isSelected = _selectedClass == classNum;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            label: Text('Class $classNum'),
-                            selected: isSelected,
-                            onSelected: (_) {
-                              setState(() {
-                                _selectedClass = classNum;
-                                _loadTests();
-                              });
-                            },
-                            backgroundColor: Colors.white,
-                            selectedColor: AppTheme.deepBlue.withOpacity(0.2),
-                            labelStyle: TextStyle(
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                              color: isSelected ? AppTheme.deepBlue : Colors.black87,
+                // Class Selector - only show for teachers/staff
+                if (!isStudent)
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: List.generate(6, (index) {
+                          final classNum = index + 5;
+                          final isSelected = _selectedClass == classNum;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: FilterChip(
+                              label: Text('Class $classNum'),
+                              selected: isSelected,
+                              onSelected: (_) {
+                                setState(() {
+                                  _selectedClass = classNum;
+                                });
+                              },
+                              backgroundColor: Colors.white,
+                              selectedColor: AppTheme.deepBlue.withOpacity(0.2),
+                              labelStyle: TextStyle(
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                color: isSelected ? AppTheme.deepBlue : Colors.black87,
+                              ),
                             ),
-                          ),
-                        );
-                      }),
+                          );
+                        }),
+                      ),
                     ),
                   ),
-                ),
                 TabBar(
                   controller: _tabController,
                   tabs: const [
@@ -129,59 +101,125 @@ class _EnhancedLeaderboardScreenState extends ConsumerState<EnhancedLeaderboardS
         body: TabBarView(
           controller: _tabController,
           children: [
-            _buildTestWiseLeaderboard(_selectedClass),
-            _buildOverallLeaderboard(_selectedClass),
-            _buildSeriesWiseLeaderboard(_selectedClass),
+            _buildTestWiseLeaderboard(_selectedClass, user),
+            _buildOverallLeaderboard(_selectedClass, user),
+            _buildSeriesWiseLeaderboard(_selectedClass, user),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTestWiseLeaderboard(int classLevel) {
-    if (_testNames.isEmpty) {
-      return Center(child: Text('No tests found', style: GoogleFonts.poppins()));
-    }
+  Widget _buildTestWiseLeaderboard(int classLevel, UserModel? user) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('test_marks')
+          .where('classLevel', isEqualTo: classLevel)
+          .where('testKind', isEqualTo: 'single')
+          .orderBy('createdAt', descending: true)
+          .limit(20)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: Text('Loading...'));
+        }
+        if (snapshot.hasError) {
+          return const Center(child: Text('Error loading tests'));
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(child: Text('No tests found', style: GoogleFonts.poppins()));
+        }
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: DropdownButton<String>(
-            value: _selectedTest.isNotEmpty ? _selectedTest : _testNames.first,
-            onChanged: (value) => setState(() => _selectedTest = value ?? ''),
-            items: _testNames.map((test) => DropdownMenuItem(value: test, child: Text(test))).toList(),
-          ),
-        ),
-        Expanded(
-          child: _TestWiseLeaderboard(
-            classLevel: classLevel,
-            testName: _selectedTest.isNotEmpty ? _selectedTest : _testNames.first,
-          ),
-        ),
-      ],
+        final testNames = snapshot.data!.docs
+            .map((doc) {
+              final data = doc.data();
+              if (data == null) return '';
+              return (data as Map<String, dynamic>)['testName'] as String? ?? '';
+            })
+            .where((name) => name.isNotEmpty)
+            .toSet()
+            .toList();
+
+        if (_selectedTest.isEmpty && testNames.isNotEmpty) {
+          _selectedTest = testNames.first;
+        }
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: DropdownButton<String>(
+                value: _selectedTest.isNotEmpty && testNames.contains(_selectedTest) ? _selectedTest : testNames.first,
+                onChanged: (value) => setState(() => _selectedTest = value ?? ''),
+                items: testNames.map((test) => DropdownMenuItem(value: test, child: Text(test))).toList(),
+              ),
+            ),
+            Expanded(
+              child: _TestWiseLeaderboard(
+                classLevel: classLevel,
+                testName: _selectedTest.isNotEmpty && testNames.contains(_selectedTest) ? _selectedTest : testNames.first,
+                user: user,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
   /// New: Overall Performance combining all recent tests
-  Widget _buildOverallLeaderboard(int classLevel) {
-    return _OverallPerformanceLeaderboard(classLevel: classLevel);
+  Widget _buildOverallLeaderboard(int classLevel, UserModel? user) {
+    return _OverallPerformanceLeaderboard(classLevel: classLevel, user: user);
   }
 
-  Widget _buildSeriesWiseLeaderboard(int classLevel) {
-    if (_seriesNames.isEmpty) {
-      return Center(child: Text('No test series found', style: GoogleFonts.poppins()));
-    }
+  Widget _buildSeriesWiseLeaderboard(int classLevel, UserModel? user) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('test_marks')
+          .where('classLevel', isEqualTo: classLevel)
+          .where('testKind', isEqualTo: 'series')
+          .orderBy('createdAt', descending: true)
+          .limit(20)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: Text('Loading...'));
+        }
+        if (snapshot.hasError) {
+          return const Center(child: Text('Error loading series'));
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(child: Text('No test series found', style: GoogleFonts.poppins()));
+        }
 
-    return _SeriesWiseLeaderboard(classLevel: classLevel, seriesNames: _seriesNames);
+        final seriesNames = snapshot.data!.docs
+            .map((doc) {
+              final data = doc.data();
+              if (data == null) return '';
+              return (data as Map<String, dynamic>)['seriesId'] as String?;
+            })
+            .where((name) => name != null && name.isNotEmpty)
+            .toSet()
+            .toList();
+
+        return _SeriesWiseLeaderboard(classLevel: classLevel, seriesNames: seriesNames.whereType<String>().toList(), user: user);
+      },
+    );
   }
 }
 
 class _TestWiseLeaderboard extends ConsumerWidget {
   final int classLevel;
   final String testName;
+  final UserModel? user;
+  final bool isSeries;
 
-  const _TestWiseLeaderboard({required this.classLevel, required this.testName});
+  const _TestWiseLeaderboard({
+    required this.classLevel,
+    required this.testName,
+    this.user,
+    this.isSeries = false,
+  });
 
   static double _parseDouble(dynamic value) {
     if (value is double) return value;
@@ -235,12 +273,18 @@ class _TestWiseLeaderboard extends ConsumerWidget {
             final roll = entry['roll'] as String;
             final mark = entry['mark'] as double;
             final percentage = (mark / maxMarks * 100).toStringAsFixed(1);
+            final isCurrentUser = user?.role.name == 'student' && user?.rollNumber == roll;
 
             return Card(
               margin: const EdgeInsets.only(bottom: 8),
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              color: rank == 0 ? Colors.grey[200] : Colors.white,
+              elevation: isCurrentUser ? 4 : 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: isCurrentUser
+                    ? BorderSide(color: AppTheme.deepBlue, width: 2)
+                    : BorderSide.none,
+              ),
+              color: rank == 0 ? Colors.grey[200] : (isCurrentUser ? Colors.blue.shade50 : Colors.white),
               child: ListTile(
                 leading: rank == 0
                     ? Icon(Icons.close, color: Colors.grey)
@@ -261,7 +305,30 @@ class _TestWiseLeaderboard extends ConsumerWidget {
                           ),
                         ),
                       ),
-                title: Text(roll, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                title: Row(
+                  children: [
+                    Text(roll, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                    if (isCurrentUser)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.deepBlue,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'YOU',
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
                 trailing: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -270,10 +337,11 @@ class _TestWiseLeaderboard extends ConsumerWidget {
                       rank == 0 ? 'N/G' : '$mark / $maxMarks',
                       style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                     ),
-                    Text(
-                      rank == 0 ? '—' : '$percentage%',
-                      style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
-                    ),
+                    if (!isSeries)
+                      Text(
+                        rank == 0 ? '—' : '$percentage%',
+                        style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+                      ),
                   ],
                 ),
               ),
@@ -295,8 +363,13 @@ class _TestWiseLeaderboard extends ConsumerWidget {
 class _SeriesWiseLeaderboard extends ConsumerWidget {
   final int classLevel;
   final List<String> seriesNames;
+  final UserModel? user;
 
-  const _SeriesWiseLeaderboard({required this.classLevel, required this.seriesNames});
+  const _SeriesWiseLeaderboard({
+    required this.classLevel,
+    required this.seriesNames,
+    this.user,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -306,6 +379,7 @@ class _SeriesWiseLeaderboard extends ConsumerWidget {
       itemBuilder: (context, index) => _SeriesCard(
         classLevel: classLevel,
         seriesName: seriesNames[index],
+        user: user,
       ),
     );
   }
@@ -314,8 +388,13 @@ class _SeriesWiseLeaderboard extends ConsumerWidget {
 class _SeriesCard extends ConsumerWidget {
   final int classLevel;
   final String seriesName;
+  final UserModel? user;
 
-  const _SeriesCard({required this.classLevel, required this.seriesName});
+  const _SeriesCard({
+    required this.classLevel,
+    required this.seriesName,
+    this.user,
+  });
 
   static double _parseDouble(dynamic value) {
     if (value is double) return value;
@@ -374,17 +453,53 @@ class _SeriesCard extends ConsumerWidget {
                 itemBuilder: (context, idx) {
                   final entry = ranked[idx];
                   final percentage = (entry.value / maxMark * 100).toStringAsFixed(1);
+                  final roll = entry.key;
+                  final isCurrentUser = user?.role.name == 'student' && user?.rollNumber == roll;
 
-                  return ListTile(
-                    leading: _buildRankBadge(idx + 1),
-                    title: Text(entry.key, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-                    trailing: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(entry.value.toStringAsFixed(2), style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-                        Text('$percentage%', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
-                      ],
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    elevation: isCurrentUser ? 4 : 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: isCurrentUser
+                          ? BorderSide(color: AppTheme.deepBlue, width: 2)
+                          : BorderSide.none,
+                    ),
+                    color: isCurrentUser ? Colors.blue.shade50 : Colors.white,
+                    child: ListTile(
+                      leading: _buildRankBadge(idx + 1),
+                      title: Row(
+                        children: [
+                          Text(roll, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                          if (isCurrentUser)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.deepBlue,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'YOU',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(entry.value.toStringAsFixed(2), style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                          // Hide percentage for series - show marks only
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -430,8 +545,12 @@ class _SeriesCard extends ConsumerWidget {
 /// NEW TAB: Overall Performance combining all tests across subjects (SST, Science, Maths, English)
 class _OverallPerformanceLeaderboard extends ConsumerWidget {
   final int classLevel;
+  final UserModel? user;
 
-  const _OverallPerformanceLeaderboard({required this.classLevel});
+  const _OverallPerformanceLeaderboard({
+    required this.classLevel,
+    this.user,
+  });
 
   static double _parseDouble(dynamic value) {
     if (value is double) return value;
@@ -611,15 +730,18 @@ class _OverallPerformanceLeaderboard extends ConsumerWidget {
               final percentage = student['percentage'] as double;
               final totalMarks = student['totalMarks'] as double;
               final maxMarks = student['maxMarks'] as double;
+              final isCurrentUser = user?.role.name == 'student' && user?.rollNumber == roll;
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
-                elevation: 0,
+                elevation: isCurrentUser ? 4 : 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
-                  side: BorderSide(color: rank <= 3 ? Colors.grey.shade300 : Colors.grey.shade200),
+                  side: isCurrentUser
+                      ? BorderSide(color: AppTheme.deepBlue, width: 2)
+                      : BorderSide(color: rank <= 3 ? Colors.grey.shade300 : Colors.grey.shade200),
                 ),
-                color: rank == 1 ? Colors.amber.shade50 : rank == 2 ? Colors.grey.shade100 : Colors.white,
+                color: rank == 1 ? Colors.amber.shade50 : rank == 2 ? Colors.grey.shade100 : (isCurrentUser ? Colors.blue.shade50 : Colors.white),
                 child: ListTile(
                   leading: Container(
                     width: 40,

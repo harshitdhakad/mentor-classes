@@ -78,65 +78,8 @@ class _StudentTodoScreenState extends ConsumerState<StudentTodoScreen> {
   final _input = TextEditingController();
   final _dateController = TextEditingController();
   DateTime? _selectedDate;
-  List<TodoItem> _todos = [];
-  List<UploadedFile> _uploads = [];
-  bool _isLoading = true;
   bool _isUploading = false;
   String _uploadStatus = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchDataWithTimeout();
-  }
-
-  Future<void> _fetchDataWithTimeout() async {
-    final user = ref.read(authProvider);
-    if (user == null) {
-      setState(() => _isLoading = false);
-      return;
-    }
-
-    try {
-      await Future.any([
-        _fetchTodos(user.id),
-        _fetchUploads(user.id),
-        Future.delayed(const Duration(seconds: 10)),
-      ]);
-    } catch (e) {
-      // Timeout or error - stop loading
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _fetchTodos(String userId) async {
-    final snap = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(userId)
-        .collection('todos')
-        .orderBy('dueDate')
-        .get();
-
-    setState(() {
-      _todos = snap.docs.map((doc) => TodoItem.fromJson(doc.data())).toList();
-    });
-  }
-
-  Future<void> _fetchUploads(String userId) async {
-    final snap = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(userId)
-        .collection('uploads')
-        .orderBy('uploadedAt', descending: true)
-        .get();
-
-    setState(() {
-      _uploads = snap.docs.map((doc) => UploadedFile.fromJson(doc.data())).toList();
-    });
-  }
 
   Future<void> _addTodo() async {
     final user = ref.read(authProvider);
@@ -160,31 +103,30 @@ class _StudentTodoScreenState extends ConsumerState<StudentTodoScreen> {
     _input.clear();
     _dateController.clear();
     setState(() => _selectedDate = null);
-    _fetchTodos(user.id);
   }
 
   Future<void> _toggleTodo(String todoId) async {
     final user = ref.read(authProvider);
     if (user == null) return;
 
-    final index = _todos.indexWhere((t) => t.id == todoId);
-    if (index == -1) return;
+    // Find current todo to toggle
+    final snap = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.id)
+        .collection('todos')
+        .doc(todoId)
+        .get();
 
-    final updated = TodoItem(
-      id: _todos[index].id,
-      title: _todos[index].title,
-      dueDate: _todos[index].dueDate,
-      done: !_todos[index].done,
-    );
+    if (!snap.exists) return;
+    final data = snap.data()!;
+    final updatedDone = !(data['done'] == true);
 
     await FirebaseFirestore.instance
         .collection('users')
         .doc(user.id)
         .collection('todos')
         .doc(todoId)
-        .update({'done': updated.done});
-
-    setState(() => _todos[index] = updated);
+        .update({'done': updatedDone});
   }
 
   Future<void> _deleteTodo(String todoId) async {
@@ -197,8 +139,6 @@ class _StudentTodoScreenState extends ConsumerState<StudentTodoScreen> {
         .collection('todos')
         .doc(todoId)
         .delete();
-
-    setState(() => _todos.removeWhere((t) => t.id == todoId));
   }
 
   Future<void> _pickAndUploadFile() async {
@@ -241,7 +181,6 @@ class _StudentTodoScreenState extends ConsumerState<StudentTodoScreen> {
           .set(uploadedFile.toJson());
 
       setState(() {
-        _uploads.insert(0, uploadedFile);
         _isUploading = false;
         _uploadStatus = '';
       });
@@ -382,12 +321,38 @@ class _StudentTodoScreenState extends ConsumerState<StudentTodoScreen> {
           ),
         ),
 
-        // Content Area
+        // Content Area with StreamBuilder
         Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _todos.isEmpty && _uploads.isEmpty
-                  ? Center(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.id)
+                .collection('todos')
+                .orderBy('dueDate')
+                .snapshots(),
+            builder: (context, todosSnapshot) {
+              return StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user.id)
+                    .collection('uploads')
+                    .orderBy('uploadedAt', descending: true)
+                    .snapshots(),
+                builder: (context, uploadsSnapshot) {
+                  if (todosSnapshot.connectionState == ConnectionState.waiting ||
+                      uploadsSnapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final todos = todosSnapshot.data!.docs
+                      .map((doc) => TodoItem.fromJson(doc.data() as Map<String, dynamic>))
+                      .toList();
+                  final uploads = uploadsSnapshot.data!.docs
+                      .map((doc) => UploadedFile.fromJson(doc.data() as Map<String, dynamic>))
+                      .toList();
+
+                  if (todos.isEmpty && uploads.isEmpty) {
+                    return Center(
                       child: Text(
                         'Nothing to do at this moment',
                         style: GoogleFonts.poppins(
@@ -396,31 +361,37 @@ class _StudentTodoScreenState extends ConsumerState<StudentTodoScreen> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                    )
-                  : DefaultTabController(
-                      length: 2,
-                      child: Column(
-                        children: [
-                          TabBar(
-                            labelColor: AppTheme.deepBlue,
-                            unselectedLabelColor: Colors.grey,
-                            indicatorColor: AppTheme.deepBlue,
-                            tabs: const [
-                              Tab(text: 'To-Dos'),
-                              Tab(text: 'Uploads'),
+                    );
+                  }
+
+                  return DefaultTabController(
+                    length: 2,
+                    child: Column(
+                      children: [
+                        TabBar(
+                          labelColor: AppTheme.deepBlue,
+                          unselectedLabelColor: Colors.grey,
+                          indicatorColor: AppTheme.deepBlue,
+                          tabs: const [
+                            Tab(text: 'To-Dos'),
+                            Tab(text: 'Uploads'),
+                          ],
+                        ),
+                        Expanded(
+                          child: TabBarView(
+                            children: [
+                              _buildTodosList(todos),
+                              _buildUploadsList(uploads),
                             ],
                           ),
-                          Expanded(
-                            child: TabBarView(
-                              children: [
-                                _buildTodosList(),
-                                _buildUploadsList(),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
+                  );
+                },
+              );
+            },
+          ),
         ),
 
         // Developer Credits
@@ -440,8 +411,8 @@ class _StudentTodoScreenState extends ConsumerState<StudentTodoScreen> {
     );
   }
 
-  Widget _buildTodosList() {
-    if (_todos.isEmpty) {
+  Widget _buildTodosList(List<TodoItem> todos) {
+    if (todos.isEmpty) {
       return Center(
         child: Text(
           'No to-dos yet',
@@ -452,9 +423,9 @@ class _StudentTodoScreenState extends ConsumerState<StudentTodoScreen> {
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _todos.length,
+      itemCount: todos.length,
       itemBuilder: (context, index) {
-        final todo = _todos[index];
+        final todo = todos[index];
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           elevation: 0,
@@ -488,8 +459,8 @@ class _StudentTodoScreenState extends ConsumerState<StudentTodoScreen> {
     );
   }
 
-  Widget _buildUploadsList() {
-    if (_uploads.isEmpty) {
+  Widget _buildUploadsList(List<UploadedFile> uploads) {
+    if (uploads.isEmpty) {
       return Center(
         child: Text(
           'No uploads yet',
@@ -500,9 +471,9 @@ class _StudentTodoScreenState extends ConsumerState<StudentTodoScreen> {
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _uploads.length,
+      itemCount: uploads.length,
       itemBuilder: (context, index) {
-        final upload = _uploads[index];
+        final upload = uploads[index];
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           elevation: 0,

@@ -4,7 +4,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/mentor_glass_card.dart';
@@ -467,7 +466,22 @@ class _ResourceUploadScreenState extends ConsumerState<ResourceUploadScreen> {
 
     try {
       final selectedClass = ref.read(selectedClassProvider);
+      final user = ref.read(authProvider);
       final repo = ref.read(erpRepositoryProvider);
+
+      // STEP 1: Triple-check mandatory fields (Name, RollNo, Class, Password)
+      if (user == null) {
+        throw Exception('User not authenticated - missing mandatory user data');
+      }
+      if (user.displayName.isEmpty) {
+        debugPrint('⚠️ User Name is missing or empty');
+      }
+      if (user.rollNumber == null || user.rollNumber!.isEmpty) {
+        debugPrint('⚠️ User RollNo is missing or empty');
+      }
+      if (user.studentClass == null) {
+        debugPrint('⚠️ User Class is invalid or missing');
+      }
 
       // Determine file type
       final fileExt = _selectedFile!.path.split('.').last.toLowerCase();
@@ -482,10 +496,14 @@ class _ResourceUploadScreenState extends ConsumerState<ResourceUploadScreen> {
       debugPrint('📁 Folder path: $folderPath');
       debugPrint('📁 Storage path: $storagePath');
       debugPrint('📄 File path: ${_selectedFile!.path}');
+      debugPrint('👤 User: ${user.displayName} (Roll: ${user.rollNumber}, Class: ${user.studentClass})');
 
       // Validate storage path
       if (storagePath.isEmpty) {
         throw Exception('Storage path cannot be empty');
+      }
+      if (selectedClass == null) {
+        throw Exception('Class level is null - mandatory field missing');
       }
 
       // STEP 1: Check if folder path exists

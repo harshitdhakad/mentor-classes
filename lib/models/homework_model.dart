@@ -42,6 +42,7 @@ class HomeWorkAssignment {
   final String assignedBy;
   final DateTime assignedAt;
   final DateTime lastUpdatedAt;
+  final DateTime expiryTime; // Mandatory field for 24-hour auto-delete
 
   HomeWorkAssignment({
     required this.id,
@@ -53,6 +54,7 @@ class HomeWorkAssignment {
     required this.assignedBy,
     required this.assignedAt,
     required this.lastUpdatedAt,
+    required this.expiryTime,
   });
 
   /// Check if this assignment has any content
@@ -82,6 +84,8 @@ class HomeWorkAssignment {
       assignedAt: (data['assignedAt'] as dynamic)?.toDate() ?? DateTime.now(),
       lastUpdatedAt:
           (data['lastUpdatedAt'] as dynamic)?.toDate() ?? DateTime.now(),
+      expiryTime: (data['expiryTime'] as dynamic)?.toDate() ?? 
+                  DateTime.now().add(const Duration(hours: 24)),
     );
   }
 
@@ -94,6 +98,7 @@ class HomeWorkAssignment {
         'assignedBy': assignedBy,
         'assignedAt': assignedAt,
         'lastUpdatedAt': lastUpdatedAt,
+        'expiryTime': expiryTime,
       };
 }
 

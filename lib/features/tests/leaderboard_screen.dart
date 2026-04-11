@@ -4,10 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../../core/widgets/mentor_glass_card.dart';
-import '../../data/erp_providers.dart';
-import '../../data/erp_repository.dart';
-import '../../models/user_model.dart';
 
 class StudentLeaderboardItem {
   StudentLeaderboardItem({
@@ -33,79 +29,18 @@ class LeaderboardScreen extends ConsumerStatefulWidget {
 
 class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   int? _selectedClass;
-  List<StudentLeaderboardItem> _leaderboard = [];
-  bool _loading = false;
-
   final List<String> _coreSubjects = ['SST', 'Science', 'Maths', 'English'];
+  List<StudentLeaderboardItem> _leaderboard = [];
 
   @override
   void initState() {
     super.initState();
   }
 
-  Future<void> _loadLeaderboard() async {
-    if (_selectedClass == null) return;
-
-    setState(() => _loading = true);
-
-    try {
-      final repo = ref.read(erpRepositoryProvider);
-      
-      // Fetch all students in the selected class
-      final studentsSnap = await FirebaseFirestore.instance
-          .collection('users')
-          .where('role', isEqualTo: 'student')
-          .where('studentClass', isEqualTo: _selectedClass)
-          .get();
-
-      final leaderboard = <StudentLeaderboardItem>[];
-
-      for (final studentDoc in studentsSnap.docs) {
-        final studentData = studentDoc.data();
-        final rollNumber = studentData['rollNumber'] as String? ?? '';
-        final name = studentData['displayName'] as String? ?? 'Unknown';
-
-        // Calculate total score from all core subjects
-        double totalScore = 0;
-        for (final subject in _coreSubjects) {
-          final marksSnap = await FirebaseFirestore.instance
-              .collection('test_marks')
-              .where('classLevel', isEqualTo: _selectedClass)
-              .where('subject', isEqualTo: subject)
-              .where('marksByRoll.$rollNumber', isNull: false)
-              .get();
-
-          for (final markDoc in marksSnap.docs) {
-            final marksData = markDoc.data();
-            final marksByRoll = marksData['marksByRoll'] as Map<String, dynamic>?;
-            if (marksByRoll != null && marksByRoll.containsKey(rollNumber)) {
-              totalScore += (marksByRoll[rollNumber] as num?)?.toDouble() ?? 0;
-            }
-          }
-        }
-
-        leaderboard.add(StudentLeaderboardItem(
-          rollNumber: rollNumber,
-          name: name,
-          totalScore: totalScore,
-        ));
-      }
-
-      // Sort by total score descending
-      leaderboard.sort((a, b) => b.totalScore.compareTo(a.totalScore));
-
-      // Assign ranks
-      for (int i = 0; i < leaderboard.length; i++) {
-        leaderboard[i].rank = i + 1;
-      }
-
-      setState(() {
-        _leaderboard = leaderboard;
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() => _loading = false);
-    }
+  void _loadLeaderboard() {
+    // This method is called when a class is selected
+    // The actual data loading happens in the StreamBuilder
+    setState(() {});
   }
 
   Widget _buildRankBadge(int rank) {
@@ -221,20 +156,96 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                     style: TextStyle(fontSize: 16, color: Colors.grey),
                   ),
                 )
-              : _loading
-                  ? const Center(child: Text('Loading...'))
-                  : _leaderboard.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'No marks available for this class',
-                            style: TextStyle(fontSize: 16, color: Colors.grey),
-                          ),
-                        )
-                      : ListView.builder(
+              : StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('users')
+                      .where('role', isEqualTo: 'student')
+                      .where('studentClass', isEqualTo: _selectedClass)
+                      .snapshots(),
+                  builder: (context, studentsSnapshot) {
+                    if (studentsSnapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: Text('Loading...'));
+                    }
+                    if (studentsSnapshot.hasError) {
+                      return const Center(child: Text('Error loading data'));
+                    }
+                    if (!studentsSnapshot.hasData || studentsSnapshot.data!.docs.isEmpty) {
+                      return const Center(
+                        child: Text(
+                          'No students in this class',
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                      );
+                    }
+
+                    return StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('test_marks')
+                          .where('classLevel', isEqualTo: _selectedClass)
+                          .snapshots(),
+                      builder: (context, marksSnapshot) {
+                        if (marksSnapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: Text('Loading marks...'));
+                        }
+                        if (marksSnapshot.hasError) {
+                          return const Center(child: Text('Error loading marks'));
+                        }
+
+                        // Calculate leaderboard
+                        final leaderboard = <StudentLeaderboardItem>[];
+                        final marksDocs = marksSnapshot.data?.docs ?? [];
+
+                        for (final studentDoc in studentsSnapshot.data!.docs) {
+                          final studentData = studentDoc.data();
+                          if (studentData == null) continue;
+                          final rollNumber = (studentData as Map<String, dynamic>)['rollNumber'] as String? ?? '';
+                          final name = studentData['displayName'] as String? ?? 'Unknown';
+
+                          // Calculate total score from all core subjects
+                          double totalScore = 0;
+                          for (final subject in _coreSubjects) {
+                            for (final markDoc in marksDocs) {
+                              final marksData = markDoc.data();
+                              if (marksData == null) continue;
+                              final marksSubject = (marksData as Map<String, dynamic>)['subject'] as String? ?? '';
+                              if (marksSubject.toLowerCase() == subject.toLowerCase()) {
+                                final marksByRoll = marksData['marksByRoll'] as Map<String, dynamic>?;
+                                if (marksByRoll != null && marksByRoll.containsKey(rollNumber)) {
+                                  totalScore += (marksByRoll[rollNumber] as num?)?.toDouble() ?? 0;
+                                }
+                              }
+                            }
+                          }
+
+                          leaderboard.add(StudentLeaderboardItem(
+                            rollNumber: rollNumber,
+                            name: name,
+                            totalScore: totalScore,
+                          ));
+                        }
+
+                        // Sort by total score descending
+                        leaderboard.sort((a, b) => b.totalScore.compareTo(a.totalScore));
+
+                        // Assign ranks
+                        for (int i = 0; i < leaderboard.length; i++) {
+                          leaderboard[i].rank = i + 1;
+                        }
+
+                        if (leaderboard.isEmpty) {
+                          return const Center(
+                            child: Text(
+                              'No marks available for this class',
+                              style: TextStyle(fontSize: 16, color: Colors.grey),
+                            ),
+                          );
+                        }
+
+                        return ListView.builder(
                           padding: const EdgeInsets.all(16),
-                          itemCount: _leaderboard.length,
+                          itemCount: leaderboard.length,
                           itemBuilder: (context, index) {
-                            final item = _leaderboard[index];
+                            final item = leaderboard[index];
                             final isTop3 = item.rank != null && item.rank! <= 3;
 
                             return Card(
@@ -293,22 +304,25 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                               ),
                             );
                           },
-                        ),
+                        );
+                      },
+                    );
+                  },
+                ),
         ),
 
         // Footer
-        if (_leaderboard.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Text(
-              'Total score calculated from SST, Science, Maths, and English',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                color: Colors.grey.shade600,
-              ),
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Text(
+            'Total score calculated from SST, Science, Maths, and English',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: Colors.grey.shade600,
             ),
           ),
+        ),
       ],
     );
   }

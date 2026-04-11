@@ -33,11 +33,8 @@ class EnhancedStudentDetailScreen extends ConsumerStatefulWidget {
 class _EnhancedStudentDetailScreenState extends ConsumerState<EnhancedStudentDetailScreen> {
   late TextEditingController _totalFeesCtrl;
   late TextEditingController _paidCtrl;
-  bool _loading = true;
   bool _savingFees = false;
   bool _generatingExcel = false;
-  double _currentTotalFees = 0;
-  double _currentRemainingFees = 0;
   late StudentPerformance _performance;
 
   static double _parseDouble(dynamic value) {
@@ -57,7 +54,6 @@ class _EnhancedStudentDetailScreenState extends ConsumerState<EnhancedStudentDet
       studentName: widget.studentName,
       classLevel: widget.classLevel,
     );
-    _loadData();
   }
 
   @override
@@ -67,109 +63,9 @@ class _EnhancedStudentDetailScreenState extends ConsumerState<EnhancedStudentDet
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    setState(() => _loading = true);
-    try {
-      final repo = ref.read(erpRepositoryProvider);
-      final studentData = await repo.getStudentWithFees(widget.studentDocId);
-
-      if (studentData != null) {
-        _currentTotalFees = _parseDouble(studentData['total_fees'] ?? 0);
-        _currentRemainingFees = _parseDouble(studentData['remaining_fees'] ?? _currentTotalFees);
-        _totalFeesCtrl.text = _currentTotalFees > 0 ? _currentTotalFees.toString() : '';
-        _paidCtrl.text = _calculatePaidFees().toStringAsFixed(2);
-      }
-
-      await _loadPerformanceStats();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading data: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _loadPerformanceStats() async {
-    try {
-      final db = FirebaseFirestore.instance;
-
-      // Get all test marks for this student
-      final marksSnap = await db
-          .collection('test_marks')
-          .where('classLevel', isEqualTo: widget.classLevel)
-          .get();
-
-      double totalMarks = 0;
-      int testCount = 0;
-      double highestMarks = 0;
-      double lowestMarks = double.maxFinite;
-
-      for (final doc in marksSnap.docs) {
-        final marks = doc.data()['marks'] as Map<String, dynamic>?;
-        final studentMark = marks?[widget.studentRoll];
-        if (studentMark != null) {
-          final mark = _parseDouble(studentMark);
-          totalMarks += mark;
-          testCount++;
-          highestMarks = mark > highestMarks ? mark : highestMarks;
-          lowestMarks = mark < lowestMarks ? mark : lowestMarks;
-        }
-      }
-
-      _performance.totalTestsGiven = testCount;
-      _performance.averageMarks = testCount > 0 ? totalMarks / testCount : 0;
-      _performance.highestMarks = highestMarks == double.maxFinite ? 0 : highestMarks;
-      _performance.lowestMarks = lowestMarks == double.maxFinite ? 0 : lowestMarks;
-
-      // Get attendance stats
-      final attendanceSnap = await db
-          .collection('attendance')
-          .where('classLevel', isEqualTo: widget.classLevel)
-          .get();
-
-      int presentDays = 0;
-      int totalDays = 0;
-
-      for (final doc in attendanceSnap.docs) {
-        final records = doc.data()['records'] as Map<String, dynamic>?;
-        if (records != null && records.containsKey(widget.studentRoll)) {
-          if (records[widget.studentRoll] == true) {
-            presentDays++;
-          }
-          totalDays++;
-        }
-      }
-
-      _performance.totalClassesAttended = presentDays;
-      _performance.totalClassesHeld = totalDays;
-
-      // Determine category based on class averages
-      var classAverages = <double>[];
-      for (final doc in marksSnap.docs) {
-        final marks = doc.data()['marks'] as Map<String, dynamic>?;
-        if (marks != null) {
-          double sum = 0;
-          for (final mark in marks.values) {
-            sum += _parseDouble(mark);
-          }
-          classAverages.add(sum / marks.length);
-        }
-      }
-
-      _performance.updateCategory(classAverages);
-
-      setState(() {});
-    } catch (e) {
-      debugPrint('Error loading performance stats: $e');
-    }
-  }
-
-  double _calculatePaidFees() {
-    final paid = _currentTotalFees - _currentRemainingFees;
-    return paid.clamp(0.0, _currentTotalFees);
+  double _calculatePaidFees(double totalFees, double remainingFees) {
+    final paid = totalFees - remainingFees;
+    return paid.clamp(0.0, totalFees);
   }
 
   double get _calculatedPending {
@@ -204,8 +100,6 @@ class _EnhancedStudentDetailScreenState extends ConsumerState<EnhancedStudentDet
             totalFees: total,
             paidAmount: paid,
           );
-      _currentTotalFees = total;
-      _currentRemainingFees = (total - paid).clamp(0.0, total);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -317,125 +211,238 @@ class _EnhancedStudentDetailScreenState extends ConsumerState<EnhancedStudentDet
       );
     }
 
-    if (_loading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Loading...')),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('test_marks')
+          .where('classLevel', isEqualTo: widget.classLevel)
+          .snapshots(),
+      builder: (context, marksSnapshot) {
+        if (marksSnapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Loading...')),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.studentName,
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Performance Card
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('attendance')
+              .where('classLevel', isEqualTo: widget.classLevel)
+              .snapshots(),
+          builder: (context, attendanceSnapshot) {
+            if (attendanceSnapshot.connectionState == ConnectionState.waiting) {
+              return Scaffold(
+                appBar: AppBar(title: const Text('Loading...')),
+                body: const Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            // Calculate performance stats
+            double totalMarks = 0;
+            int testCount = 0;
+            double highestMarks = 0;
+            double lowestMarks = double.maxFinite;
+
+            if (marksSnapshot.hasData) {
+              for (final doc in marksSnapshot.data!.docs) {
+                final data = doc.data();
+                if (data == null) continue;
+                final marks = (data as Map<String, dynamic>)['marks'] as Map<String, dynamic>?;
+                final studentMark = marks?[widget.studentRoll];
+                if (studentMark != null) {
+                  final mark = _parseDouble(studentMark);
+                  totalMarks += mark;
+                  testCount++;
+                  highestMarks = mark > highestMarks ? mark : highestMarks;
+                  lowestMarks = mark < lowestMarks ? mark : lowestMarks;
+                }
+              }
+            }
+
+            _performance.totalTestsGiven = testCount;
+            _performance.averageMarks = testCount > 0 ? totalMarks / testCount : 0;
+            _performance.highestMarks = highestMarks == double.maxFinite ? 0 : highestMarks;
+            _performance.lowestMarks = lowestMarks == double.maxFinite ? 0 : lowestMarks;
+
+            // Calculate attendance stats
+            int presentDays = 0;
+            int totalDays = 0;
+
+            if (attendanceSnapshot.hasData) {
+              for (final doc in attendanceSnapshot.data!.docs) {
+                final data = doc.data();
+                if (data != null) {
+                  final records = (data as Map<String, dynamic>)['records'] as Map<String, dynamic>?;
+                  if (records != null && records.containsKey(widget.studentRoll)) {
+                    if (records[widget.studentRoll] == true) {
+                      presentDays++;
+                    }
+                    totalDays++;
+                  }
+                }
+              }
+            }
+
+            _performance.totalClassesAttended = presentDays;
+            _performance.totalClassesHeld = totalDays;
+
+            // Determine category based on class averages
+            var classAverages = <double>[];
+            if (marksSnapshot.hasData) {
+              for (final doc in marksSnapshot.data!.docs) {
+                final data = doc.data();
+                if (data == null) continue;
+                final marks = (data as Map<String, dynamic>)['marks'] as Map<String, dynamic>?;
+                if (marks != null) {
+                  double sum = 0;
+                  for (final mark in marks.values) {
+                    sum += _parseDouble(mark);
+                  }
+                  if (marks.length > 0) {
+                    classAverages.add(sum / marks.length);
+                  }
+                }
+              }
+            }
+
+            _performance.updateCategory(classAverages);
+
+            return StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('students')
+                  .doc(widget.studentDocId)
+                  .snapshots(),
+              builder: (context, studentSnapshot) {
+                double totalFees = 0;
+                double remainingFees = 0;
+
+                if (studentSnapshot.hasData && studentSnapshot.data!.exists) {
+                  final data = studentSnapshot.data!.data() as Map<String, dynamic>?;
+                  totalFees = _parseDouble(data?['total_fees'] ?? 0);
+                  remainingFees = _parseDouble(data?['remaining_fees'] ?? totalFees);
+                  
+                  _totalFeesCtrl.text = totalFees > 0 ? totalFees.toString() : '';
+                  _paidCtrl.text = _calculatePaidFees(totalFees, remainingFees).toStringAsFixed(2);
+                }
+
+                return Scaffold(
+                  appBar: AppBar(
+                    title: Text(
+                      widget.studentName,
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  body: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Performance ${_performance.category.emoji}',
-                          style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: _getCategoryColor(_performance.category).withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: _getCategoryColor(_performance.category)),
-                          ),
-                          child: Text(
-                            _performance.category.label,
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w600,
-                              color: _getCategoryColor(_performance.category),
+                        // Performance Card
+                        Card(
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Performance ${_performance.category.emoji}',
+                                      style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: _getCategoryColor(_performance.category).withValues(alpha: 0.2),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: _getCategoryColor(_performance.category)),
+                                      ),
+                                      child: Text(
+                                        _performance.category.label,
+                                        style: GoogleFonts.poppins(
+                                          fontWeight: FontWeight.w600,
+                                          color: _getCategoryColor(_performance.category),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                _buildStatRow('Tests Given', _performance.totalTestsGiven.toString()),
+                                _buildStatRow('Average Marks', _performance.averageMarks.toStringAsFixed(2)),
+                                _buildStatRow('Highest Marks', _performance.highestMarks.toStringAsFixed(2)),
+                                _buildStatRow('Lowest Marks', _performance.lowestMarks.toStringAsFixed(2)),
+                                _buildStatRow('Attendance', '${_performance.totalClassesAttended}/${_performance.totalClassesHeld} (${_performance.attendancePercentage.toStringAsFixed(1)}%)'),
+                              ],
                             ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        // Fees Management Card
+                        Card(
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Fees Management',
+                                  style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 16),
+                                TextField(
+                                  controller: _totalFeesCtrl,
+                                  decoration: const InputDecoration(labelText: 'Total Fees'),
+                                  keyboardType: TextInputType.number,
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: _paidCtrl,
+                                  decoration: const InputDecoration(labelText: 'Paid Amount'),
+                                  keyboardType: TextInputType.number,
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Pending: ₹${_calculatedPending.toStringAsFixed(2)}',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: _calculatedPending > 0 ? AppTheme.errorRed : AppTheme.successGreen,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton(
+                                  onPressed: _savingFees ? null : _updateFees,
+                                  child: _savingFees ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Update Fees'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        // Excel Export Button
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _generatingExcel ? null : _generatePTMExcel,
+                            icon: _generatingExcel ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.download),
+                            label: const Text('Generate PTM Excel Report'),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    _buildStatRow('Tests Given', _performance.totalTestsGiven.toString()),
-                    _buildStatRow('Average Marks', _performance.averageMarks.toStringAsFixed(2)),
-                    _buildStatRow('Highest Marks', _performance.highestMarks.toStringAsFixed(2)),
-                    _buildStatRow('Lowest Marks', _performance.lowestMarks.toStringAsFixed(2)),
-                    _buildStatRow('Attendance', '${_performance.totalClassesAttended}/${_performance.totalClassesHeld} (${_performance.attendancePercentage.toStringAsFixed(1)}%)'),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Fees Management Card
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Fees Management',
-                      style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _totalFeesCtrl,
-                      decoration: const InputDecoration(labelText: 'Total Fees'),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _paidCtrl,
-                      decoration: const InputDecoration(labelText: 'Paid Amount'),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Pending: ₹${_calculatedPending.toStringAsFixed(2)}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: _calculatedPending > 0 ? AppTheme.errorRed : AppTheme.successGreen,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _savingFees ? null : _updateFees,
-                      child: _savingFees ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Update Fees'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Excel Export Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _generatingExcel ? null : _generatePTMExcel,
-                icon: _generatingExcel ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.download),
-                label: const Text('Generate PTM Excel Report'),
-              ),
-            ),
-          ],
-        ),
-      ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 

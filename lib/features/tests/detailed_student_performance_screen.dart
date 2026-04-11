@@ -1,11 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../../data/erp_providers.dart';
 import '../../models/user_model.dart';
 import '../auth/auth_service.dart';
 
@@ -20,7 +18,21 @@ class DetailedStudentPerformanceScreen extends ConsumerStatefulWidget {
 }
 
 class _DetailedStudentPerformanceScreenState
-    extends ConsumerState<DetailedStudentPerformanceScreen> {
+    extends ConsumerState<DetailedStudentPerformanceScreen> with TickerProviderStateMixin {
+  late TabController _tabController;
+  
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+  
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
   static double _parseDouble(dynamic value) {
     if (value is double) return value;
     if (value is int) return value.toDouble();
@@ -144,8 +156,26 @@ class _DetailedStudentPerformanceScreenState
         ),
         backgroundColor: AppTheme.deepBlue,
         foregroundColor: Colors.white,
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'All Tests'),
+            Tab(text: 'Test Series'),
+          ],
+        ),
       ),
-      body: StreamBuilder<QuerySnapshot>(
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildAllTestsView(classLevel, rollNumber, studentName),
+          _buildTestSeriesView(classLevel, rollNumber, studentName),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAllTestsView(int classLevel, String rollNumber, String studentName) {
+    return StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('test_marks')
             .where('classLevel', isEqualTo: classLevel)
@@ -556,7 +586,188 @@ class _DetailedStudentPerformanceScreenState
             ),
           );
         },
-      ),
+      );
+  }
+
+  Widget _buildTestSeriesView(int classLevel, String rollNumber, String studentName) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('test_marks')
+          .where('classLevel', isEqualTo: classLevel)
+          .where('testKind', isEqualTo: 'series')
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: Text('Loading...'));
+        }
+        if (snapshot.hasError) {
+          return const Center(child: Text('Error loading data'));
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.assessment, size: 64, color: Colors.grey.shade300),
+                const SizedBox(height: 16),
+                Text(
+                  'No test series found',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Group by seriesId
+        final seriesMap = <String, List<Map<String, dynamic>>>{};
+        for (final doc in snapshot.data!.docs) {
+          final docData = doc.data() as Map<String, dynamic>;
+          final seriesId = docData['seriesId'] as String? ?? 'Unknown';
+          if (!seriesMap.containsKey(seriesId)) {
+            seriesMap[seriesId] = [];
+          }
+          seriesMap[seriesId]!.add(docData);
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: seriesMap.length,
+          itemBuilder: (context, index) {
+            final seriesId = seriesMap.keys.elementAt(index);
+            final seriesTests = seriesMap[seriesId]!;
+
+            // Calculate total marks for this student across all subjects in series
+            double totalMarks = 0;
+            double totalMaxMarks = 0;
+            int subjectCount = 0;
+            final subjectMarks = <String, double>{};
+
+            for (final test in seriesTests) {
+              final marks = test['marksByRoll'] as Map<String, dynamic>?;
+              final notGivenRolls = (test['notGivenRolls'] as List?)?.cast<String>() ?? [];
+              final maxMarks = _parseDouble(test['maxMarks'] ?? 100);
+              final subject = test['subject'] as String? ?? 'General';
+
+              if (marks != null && marks.containsKey(rollNumber) && !notGivenRolls.contains(rollNumber)) {
+                final score = (marks[rollNumber] as num?)?.toDouble() ?? 0.0;
+                subjectMarks[subject] = score;
+                totalMarks += score;
+                totalMaxMarks += maxMarks;
+                subjectCount++;
+              }
+            }
+
+            final overallPercentage = totalMaxMarks > 0 ? (totalMarks / totalMaxMarks) * 100 : 0.0;
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.grey.shade200),
+              ),
+              child: ExpansionTile(
+                title: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      seriesId,
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$subjectCount subjects • ${overallPercentage.toStringAsFixed(1)}%',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Overall Score
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Total Score',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              Text(
+                                '${totalMarks.toStringAsFixed(0)} / ${totalMaxMarks.toStringAsFixed(0)}',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                  color: AppTheme.deepBlue,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Subject-wise breakdown
+                        Text(
+                          'Subject-wise Marks',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ...subjectMarks.entries.map((entry) {
+                          final subject = entry.key;
+                          final marks = entry.value;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  subject,
+                                  style: GoogleFonts.poppins(fontSize: 13),
+                                ),
+                                Text(
+                                  marks.toStringAsFixed(0),
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
