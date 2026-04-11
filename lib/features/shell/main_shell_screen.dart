@@ -167,6 +167,8 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
               Icons.calendar_today_outlined,
               Icons.assignment_outlined,
               Icons.campaign_outlined,
+              Icons.attach_money,
+              Icons.notifications_outlined,
               Icons.school,
               Icons.info_outlined,
             ]
@@ -182,6 +184,7 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
               Icons.book_outlined,
               Icons.update_outlined,
               Icons.school,
+              Icons.notifications_outlined,
               Icons.info_outlined,
             ];
 
