@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/navigation/page_transitions.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/mentor_footer.dart';
 import '../../models/user_model.dart';
-import '../shell/main_shell_screen.dart';
 import 'auth_service.dart';
 
 /// Material 3 login with role selector: Admin, Teacher, or Student.
@@ -45,29 +44,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     setState(() => _busy = true);
+    debugPrint('LoginScreen: Starting login process');
     try {
       if (isStaff) {
+        debugPrint('LoginScreen: Attempting staff login');
         await ref.read(authProvider.notifier).signInStaff(
               role: _role,
               email: _emailCtrl.text,
               password: _passwordCtrl.text,
             );
       } else {
+        debugPrint('LoginScreen: Attempting student login');
         await ref.read(authProvider.notifier).signInStudent(
               rollNumber: _rollCtrl.text,
               classLevel: _studentClass,
               password: _passwordCtrl.text,
             );
       }
+      debugPrint('LoginScreen: Login successful, checking user state');
+      final user = ref.read(authProvider);
+      debugPrint('LoginScreen: User after login: ${user?.displayName}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Welcome, ${ref.read(authProvider)?.displayName ?? ''}')),
+          SnackBar(content: Text('Welcome, ${user?.displayName ?? ''}')),
         );
-        Navigator.of(context).pushReplacement(
-          CustomPageTransitions.fadeScale(const MainShellScreen()),
-        );
+        debugPrint('LoginScreen: Navigating to dashboard');
+        Navigator.of(context).pushReplacementNamed('/dashboard');
       }
     } on AuthException catch (e) {
+      debugPrint('LoginScreen: AuthException: ${e.message}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -77,6 +82,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       }
     } catch (e) {
+      debugPrint('LoginScreen: Exception: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Something went wrong: $e')),

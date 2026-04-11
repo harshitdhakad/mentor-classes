@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -203,7 +204,10 @@ final authServiceProvider = Provider<AuthService>((ref) {
 
 class AuthNotifier extends Notifier<AppUser?> {
   @override
-  AppUser? build() => null;
+  AppUser? build() {
+    debugPrint('AuthNotifier: Building with initial state: null');
+    return null;
+  }
 
   Future<void> signInStaff({
     required UserRole role,
@@ -212,8 +216,10 @@ class AuthNotifier extends Notifier<AppUser?> {
   }) async {
     final service = ref.read(authServiceProvider);
     final user = await service.loginStaff(role: role, email: email, password: password);
+    debugPrint('Login successful: ${user.displayName}, Role: ${user.role}');
     state = user;
     await AuthService.persistUser(user);
+    debugPrint('User persisted to SharedPreferences');
   }
 
   Future<void> signInStudent({

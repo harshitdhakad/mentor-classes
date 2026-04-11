@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'core/theme/app_theme.dart';
 import 'features/auth/auth_service.dart';
@@ -52,6 +53,31 @@ class MentorClassesApp extends StatelessWidget {
       navigatorKey: navigatorKey,
       theme: AppTheme.light(),
       initialRoute: '/',
+      onUnknownRoute: (settings) {
+        debugPrint('Unknown route: ${settings.name}');
+        return MaterialPageRoute(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Route not found: ${settings.name}',
+                    style: GoogleFonts.poppins(fontSize: 16),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pushReplacementNamed('/'),
+                    child: const Text('Go Home'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
       routes: {
         '/': (context) => const SplashScreen(),
         '/login': (context) => const LoginScreen(),

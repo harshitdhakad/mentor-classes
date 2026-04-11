@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -46,12 +47,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   Future<void> _checkAuth() async {
     if (!mounted || _navStarted) return; // Prevent duplicate navigation
     _navStarted = true;
+    debugPrint('SplashScreen: Starting auth check');
     
     var user = ref.read(authProvider);
+    debugPrint('SplashScreen: Initial user from provider: ${user?.displayName}');
     if (user == null) {
+      debugPrint('SplashScreen: User is null, attempting to restore from storage');
       user = await AuthService.restoreSavedUser();
+      debugPrint('SplashScreen: Restored user: ${user?.displayName}');
       if (user != null && mounted) {
         await ref.read(authProvider.notifier).restoreSession(user);
+        debugPrint('SplashScreen: Session restored');
       }
     }
 
@@ -59,12 +65,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     
     // Re-check after potential async auth restoration
     user = ref.read(authProvider);
+    debugPrint('SplashScreen: Final user check: ${user?.displayName}');
     
     if (user != null) {
+      debugPrint('SplashScreen: Navigating to dashboard');
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/dashboard');
       }
     } else {
+      debugPrint('SplashScreen: Navigating to login');
       if (mounted) {
         Navigator.of(context).pushReplacement(
           CustomPageTransitions.slideFromLeft(const LoginScreen()),
