@@ -459,6 +459,24 @@ class _ResourceUploadScreenState extends ConsumerState<ResourceUploadScreen> {
       final user = ref.read(authProvider);
       final repo = ref.read(erpRepositoryProvider);
 
+      // Show centered loading indicator
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Loading...'),
+              ],
+            ),
+          ),
+        );
+      }
+
       // STEP 1: Triple-check mandatory fields (Name, RollNo, Class, Password)
       if (user == null) {
         throw Exception('User not authenticated - missing mandatory user data');
@@ -559,6 +577,9 @@ class _ResourceUploadScreenState extends ConsumerState<ResourceUploadScreen> {
       debugPrint('✅ Resource saved to Firestore');
 
       if (mounted) {
+        // Close loading dialog
+        Navigator.of(context).pop();
+        
         // Reset form
         _titleController.clear();
         _descriptionController.clear();
@@ -586,6 +607,11 @@ class _ResourceUploadScreenState extends ConsumerState<ResourceUploadScreen> {
       debugPrint('❌ Stack trace: ${StackTrace.current}');
 
       if (mounted) {
+        // Close loading dialog if open
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('❌ Upload failed: ${e.toString()}'),

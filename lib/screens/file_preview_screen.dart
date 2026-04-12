@@ -107,7 +107,7 @@ class _FilePreviewScreenState extends State<FilePreviewScreen> {
                   children: [
                     CircularProgressIndicator(),
                     SizedBox(height: 16),
-                    Text('Loading live PDF...'),
+                    Text('Loading...'),
                   ],
                 ),
               );
@@ -134,7 +134,7 @@ class _FilePreviewScreenState extends State<FilePreviewScreen> {
                 children: [
                   CircularProgressIndicator(),
                   SizedBox(height: 16),
-                  Text('Loading live PDF...'),
+                  Text('Loading...'),
                 ],
               ),
             );

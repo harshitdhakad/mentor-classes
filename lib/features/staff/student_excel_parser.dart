@@ -145,8 +145,8 @@ abstract final class StudentExcelParser {
       // Robust null-safe defaults for all fields
       final fees = double.tryParse(feesRaw) ?? 0.0;
       final feesCriteria = feesCriteriaRaw.isNotEmpty ? feesCriteriaRaw : 'Monthly';
-      final mobileNumber = mobile.isNotEmpty ? mobile : '';
-      final emergencyContact = emerg.isNotEmpty ? emerg : '';
+      final mobileNumber = mobile.isNotEmpty ? mobile : 'N/A';
+      final emergencyContact = emerg.isNotEmpty ? emerg : 'N/A';
 
       if (name.isNotEmpty && roll.isNotEmpty && password.isNotEmpty) {
         rows.add(
@@ -189,7 +189,7 @@ abstract final class StudentExcelParser {
   }
 
   static String _normHeader(String s) =>
-      s.toLowerCase().replaceAll(RegExp(r'[\s_\-]+'), '');
+      s.toLowerCase().trim().replaceAll(RegExp(r'[\s_\-]+'), '');
 
   static int? _columnIndex(List<String> headers, List<String> aliases) {
     for (var i = 0; i < headers.length; i++) {

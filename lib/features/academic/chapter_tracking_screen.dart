@@ -229,15 +229,16 @@ class _ChapterTrackingScreenState
                 try {
                   // CRITICAL: Check waiting state FIRST
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: Text('Loading live updates...'));
+                    return const Center(child: CircularProgressIndicator());
                   }
                   // Check error state AFTER waiting
                   if (snapshot.hasError) {
                     debugPrint('Chapter tracking error: ${snapshot.error}');
                     return const Center(child: Text('Syncing data...'));
                   }
-                  // Check empty data AFTER error
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  // Check empty data AFTER error AND only if ConnectionState is active
+                  if (snapshot.connectionState == ConnectionState.active &&
+                      (!snapshot.hasData || snapshot.data!.docs.isEmpty)) {
                     return Center(
                       child: Text(
                         isStudent

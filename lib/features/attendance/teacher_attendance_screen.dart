@@ -257,15 +257,16 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
               try {
                 // CRITICAL: Check waiting state FIRST
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: Text('Loading live student list...'));
+                  return const Center(child: CircularProgressIndicator());
                 }
                 // Check error state AFTER waiting
                 if (snapshot.hasError) {
                   debugPrint('Teacher attendance error: ${snapshot.error}');
                   return const Center(child: Text('Error loading list'));
                 }
-                // Check empty data AFTER error
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                // Check empty data AFTER error AND only if ConnectionState is active
+                if (snapshot.connectionState == ConnectionState.active &&
+                    (!snapshot.hasData || snapshot.data!.docs.isEmpty)) {
                   return Center(
                     child: Text(
                       'No students found for this class.',

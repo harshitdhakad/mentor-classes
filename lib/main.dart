@@ -48,6 +48,8 @@ Future<void> main() async {
 
   try {
     // Firebase Initialize
+    // Temporarily disable persistence to clear old cached 'millisecond' data
+    FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: false);
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     ).timeout(const Duration(seconds: 10));

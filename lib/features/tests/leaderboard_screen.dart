@@ -162,15 +162,16 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                     try {
                       // CRITICAL: Check waiting state FIRST
                       if (studentsSnapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: Text('Loading live updates...'));
+                        return const Center(child: CircularProgressIndicator());
                       }
                       // Check error state AFTER waiting
                       if (studentsSnapshot.hasError) {
                         debugPrint('Leaderboard students error: ${studentsSnapshot.error}');
                         return const Center(child: Text('Syncing data...'));
                       }
-                      // Check empty data AFTER error
-                      if (!studentsSnapshot.hasData || studentsSnapshot.data!.docs.isEmpty) {
+                      // Check empty data AFTER error AND only if ConnectionState is active
+                      if (studentsSnapshot.connectionState == ConnectionState.active &&
+                          (!studentsSnapshot.hasData || studentsSnapshot.data!.docs.isEmpty)) {
                         return const Center(
                           child: Text(
                             'No data available for this class.',
@@ -188,7 +189,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                           try {
                             // CRITICAL: Check waiting state FIRST
                             if (marksSnapshot.connectionState == ConnectionState.waiting) {
-                              return const Center(child: Text('Loading live updates...'));
+                              return const Center(child: CircularProgressIndicator());
                             }
                             // Check error state AFTER waiting
                             if (marksSnapshot.hasError) {

@@ -45,8 +45,10 @@ class StudentUploadRepository {
             'total_fees': row.fees,
             'feesCriteria': row.feesCriteria,
             'remaining_fees': row.fees,
-            if (row.mobileNumber.isNotEmpty) 'mobileNumber': row.mobileNumber,
-            if (row.emergencyContact.isNotEmpty) 'emergencyContact': row.emergencyContact,
+            'feesStatus': 'Due',
+            'feesPaid': 0.0,
+            'mobileNumber': row.mobileNumber.isNotEmpty ? row.mobileNumber : 'N/A',
+            'emergencyContact': row.emergencyContact.isNotEmpty ? row.emergencyContact : 'N/A',
           },
           SetOptions(merge: true),
         );
@@ -63,8 +65,8 @@ class StudentUploadRepository {
             'total_fees': row.fees,
             'feesCriteria': row.feesCriteria,
             'remaining_fees': row.fees,
-            if (row.mobileNumber.isNotEmpty) 'mobileNumber': row.mobileNumber,
-            if (row.emergencyContact.isNotEmpty) 'emergencyContact': row.emergencyContact,
+            'mobileNumber': row.mobileNumber.isNotEmpty ? row.mobileNumber : 'N/A',
+            'emergencyContact': row.emergencyContact.isNotEmpty ? row.emergencyContact : 'N/A',
           },
           SetOptions(merge: true),
         );

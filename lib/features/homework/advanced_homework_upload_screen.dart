@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../data/erp_providers.dart';
@@ -54,6 +55,22 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
     setState(() => _saving = true);
 
     try {
+      // Check-and-Create path initialization
+      final db = FirebaseFirestore.instance;
+      final classDocRef = db.collection('homework').doc(_selectedClass.toString());
+      final subjectDocRef = classDocRef.collection(_selectedSubject).doc('current');
+      
+      // Check if path exists, if not create dummy initialization
+      final subjectDoc = await subjectDocRef.get();
+      if (!subjectDoc.exists) {
+        await subjectDocRef.set({
+          'initialized': true,
+          'classLevel': _selectedClass,
+          'subject': _selectedSubject,
+          'createdAt': DateTime.now(),
+        });
+      }
+
       // Save to Firestore without file attachments
       await ref.read(erpRepositoryProvider).saveHomeworkForClassAndSubject(
             classLevel: _selectedClass,
