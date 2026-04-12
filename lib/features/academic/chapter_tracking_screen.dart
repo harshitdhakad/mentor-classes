@@ -113,7 +113,7 @@ class _ChapterTrackingScreenState
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int>(
-                    value: _selectedClass,
+                    initialValue: _selectedClass,
                     decoration: InputDecoration(
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -156,7 +156,7 @@ class _ChapterTrackingScreenState
                         setState(() => _selectedSubject = subject);
                       },
                       backgroundColor: Colors.grey[200],
-                      selectedColor: AppTheme.deepBlue.withOpacity(0.2),
+                      selectedColor: AppTheme.deepBlue.withValues(alpha: 0.2),
                       labelStyle: TextStyle(
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                         color: isSelected ? AppTheme.deepBlue : Colors.black87,
@@ -224,123 +224,141 @@ class _ChapterTrackingScreenState
                   .orderBy('addedAt')
                   .snapshots(),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
+                try {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: Text('Loading...'));
+                  }
+                  if (snapshot.hasError) {
+                    debugPrint('Chapter tracking error: ${snapshot.error}');
+                    return const Center(child: Text('Error loading chapters'));
+                  }
+                  if (!snapshot.hasData) {
+                    return const Center(child: Text('Loading...'));
+                  }
+
+                  final chapters = snapshot.data!.docs;
+
+                  if (chapters.isEmpty) {
+                    return Center(
+                      child: Text(
+                        isStudent
+                            ? 'No chapters added yet for $_selectedSubject'
+                            : 'No chapters added yet. Add chapters to track progress.',
+                        style: GoogleFonts.poppins(color: Colors.grey.shade600),
+                      ),
+                    );
+                  }
+
+                  final completedCount = chapters
+                      .where((doc) {
+                        try {
+                          return (doc.data() as Map)['completed'] == true;
+                        } catch (e) {
+                          debugPrint('Error checking chapter completion: $e');
+                          return false;
+                        }
+                      })
+                      .length;
+
+                  final progress = completedCount / chapters.length;
+
+                  return Column(
+                    children: [
+                      // Progress Bar
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        color: Colors.white,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Progress',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  '${(progress * 100).toInt()}%',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.deepBlue,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            LinearProgressIndicator(
+                              value: progress,
+                              backgroundColor: Colors.grey.shade200,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                AppTheme.deepBlue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Chapters List
+                      Expanded(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: chapters.length,
+                          itemBuilder: (context, index) {
+                            try {
+                              final doc = chapters[index];
+                              final data = doc.data() as Map<String, dynamic>;
+                              final chapterName = data['chapterName'] as String? ?? '';
+                              final completed = data['completed'] as bool? ?? false;
+
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(color: Colors.grey.shade200),
+                                ),
+                                child: ListTile(
+                                  leading: Checkbox(
+                                    value: completed,
+                                    onChanged: isStudent
+                                        ? null
+                                        : (_) => _toggleChapter(doc.id, completed),
+                                  ),
+                                  title: Text(
+                                    chapterName,
+                                    style: GoogleFonts.poppins(
+                                      decoration:
+                                          completed ? TextDecoration.lineThrough : null,
+                                      color: completed ? Colors.grey : null,
+                                    ),
+                                  ),
+                                  trailing: !isStudent
+                                      ? IconButton(
+                                          icon: const Icon(Icons.delete_outline,
+                                              color: Colors.redAccent),
+                                          onPressed: () => _deleteChapter(doc.id),
+                                        )
+                                      : null,
+                                ),
+                              );
+                            } catch (e) {
+                              debugPrint('Error rendering chapter item: $e');
+                              return const SizedBox.shrink();
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                } catch (e) {
+                  debugPrint('Chapter tracking widget error: $e');
                   return const Center(child: Text('Error loading chapters'));
                 }
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final chapters = snapshot.data!.docs;
-
-                if (chapters.isEmpty) {
-                  return Center(
-                    child: Text(
-                      isStudent
-                          ? 'No chapters added yet for $_selectedSubject'
-                          : 'No chapters added yet. Add chapters to track progress.',
-                      style: GoogleFonts.poppins(color: Colors.grey.shade600),
-                    ),
-                  );
-                }
-
-                final completedCount = chapters
-                    .where((doc) => (doc.data() as Map)['completed'] == true)
-                    .length;
-
-                final progress = completedCount / chapters.length;
-
-                return Column(
-                  children: [
-                    // Progress Bar
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      color: Colors.white,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Progress',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                '${(progress * 100).toInt()}%',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.deepBlue,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          LinearProgressIndicator(
-                            value: progress,
-                            backgroundColor: Colors.grey.shade200,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              AppTheme.deepBlue,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Chapters List
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: chapters.length,
-                        itemBuilder: (context, index) {
-                          final doc = chapters[index];
-                          final data = doc.data() as Map<String, dynamic>;
-                          final chapterName = data['chapterName'] as String? ?? '';
-                          final completed = data['completed'] as bool? ?? false;
-
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.grey.shade200),
-                            ),
-                            child: ListTile(
-                              leading: Checkbox(
-                                value: completed,
-                                onChanged: isStudent
-                                    ? null
-                                    : (_) => _toggleChapter(doc.id, completed),
-                              ),
-                              title: Text(
-                                chapterName,
-                                style: GoogleFonts.poppins(
-                                  decoration:
-                                      completed ? TextDecoration.lineThrough : null,
-                                  color: completed ? Colors.grey : null,
-                                ),
-                              ),
-                              trailing: !isStudent
-                                  ? IconButton(
-                                      icon: const Icon(Icons.delete_outline,
-                                          color: Colors.redAccent),
-                                      onPressed: () => _deleteChapter(doc.id),
-                                    )
-                                  : null,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                );
               },
             ),
           ),

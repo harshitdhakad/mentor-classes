@@ -127,7 +127,7 @@ class _HomeworkUploadScreenState extends State<HomeworkUploadScreen> {
             // File Type Info
             Card(
               elevation: 0,
-              color: Colors.blue.withOpacity(0.1),
+              color: Colors.blue.withValues(alpha: 0.1),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(

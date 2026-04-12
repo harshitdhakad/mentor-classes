@@ -389,7 +389,6 @@ class _SeriesRankBlockState extends State<_SeriesRankBlock> {
         final roll = k.toString();
         if (ng.contains(roll)) return;
         final sc = _parseDouble(v);
-        if (sc == null) return;
         sums[roll] = (sums[roll] ?? 0) + (100 * sc / max);
         counts[roll] = (counts[roll] ?? 0) + 1;
       });

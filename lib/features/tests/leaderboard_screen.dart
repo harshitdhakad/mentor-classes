@@ -30,7 +30,6 @@ class LeaderboardScreen extends ConsumerStatefulWidget {
 class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   int? _selectedClass;
   final List<String> _coreSubjects = ['SST', 'Science', 'Maths', 'English'];
-  List<StudentLeaderboardItem> _leaderboard = [];
 
   @override
   void initState() {
@@ -81,7 +80,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: AppTheme.deepBlue.withOpacity(0.1),
+        color: AppTheme.deepBlue.withValues(alpha: 0.1),
         shape: BoxShape.circle,
       ),
       child: Center(
@@ -130,8 +129,6 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                       setState(() => _selectedClass = selected ? classNum : null);
                       if (selected) {
                         _loadLeaderboard();
-                      } else {
-                        setState(() => _leaderboard = []);
                       }
                     },
                     backgroundColor: Colors.white,
@@ -162,150 +159,176 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                       .where('classLevel', isEqualTo: _selectedClass)
                       .snapshots(),
                   builder: (context, studentsSnapshot) {
-                    if (studentsSnapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: Text('Loading...'));
-                    }
-                    if (studentsSnapshot.hasError) {
-                      return const Center(child: Text('Error loading data'));
-                    }
-                    if (!studentsSnapshot.hasData || studentsSnapshot.data!.docs.isEmpty) {
-                      return const Center(
-                        child: Text(
-                          'No students in this class',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
-                        ),
-                      );
-                    }
+                    try {
+                      if (studentsSnapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: Text('Loading...'));
+                      }
+                      if (studentsSnapshot.hasError) {
+                        debugPrint('Leaderboard students error: ${studentsSnapshot.error}');
+                        return const Center(child: Text('Error loading data'));
+                      }
+                      if (!studentsSnapshot.hasData || studentsSnapshot.data!.docs.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            'No students in this class',
+                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                          ),
+                        );
+                      }
 
-                    return StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance
-                          .collection('test_marks')
-                          .where('classLevel', isEqualTo: _selectedClass)
-                          .snapshots(),
-                      builder: (context, marksSnapshot) {
-                        if (marksSnapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: Text('Loading marks...'));
-                        }
-                        if (marksSnapshot.hasError) {
-                          return const Center(child: Text('Error loading marks'));
-                        }
+                      return StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('test_marks')
+                            .where('classLevel', isEqualTo: _selectedClass)
+                            .snapshots(),
+                        builder: (context, marksSnapshot) {
+                          try {
+                            if (marksSnapshot.connectionState == ConnectionState.waiting) {
+                              return const Center(child: Text('Loading marks...'));
+                            }
+                            if (marksSnapshot.hasError) {
+                              debugPrint('Leaderboard marks error: ${marksSnapshot.error}');
+                              return const Center(child: Text('Error loading marks'));
+                            }
 
-                        // Calculate leaderboard
-                        final leaderboard = <StudentLeaderboardItem>[];
-                        final marksDocs = marksSnapshot.data?.docs ?? [];
+                            // Calculate leaderboard
+                            final leaderboard = <StudentLeaderboardItem>[];
+                            final marksDocs = marksSnapshot.data?.docs ?? [];
 
-                        for (final studentDoc in studentsSnapshot.data!.docs) {
-                          final studentData = studentDoc.data() as Map<String, dynamic>?;
-                          if (studentData == null) continue;
-                          final rollNumber = studentData['roll']?.toString() ?? '';
-                          final name = studentData['name']?.toString() ?? 'Unknown';
+                            for (final studentDoc in studentsSnapshot.data!.docs) {
+                              try {
+                                final studentData = studentDoc.data() as Map<String, dynamic>?;
+                                if (studentData == null) continue;
+                                final rollNumber = studentData['roll']?.toString() ?? '';
+                                final name = studentData['name']?.toString() ?? 'Unknown';
 
-                          // Calculate total score from all core subjects
-                          double totalScore = 0;
-                          for (final subject in _coreSubjects) {
-                            for (final markDoc in marksDocs) {
-                              final marksData = markDoc.data();
-                              if (marksData == null) continue;
-                              final marksSubject = (marksData as Map<String, dynamic>)['subject'] as String? ?? '';
-                              if (marksSubject.toLowerCase() == subject.toLowerCase()) {
-                                final marksByRoll = marksData['marksByRoll'] as Map<String, dynamic>?;
-                                if (marksByRoll != null && marksByRoll.containsKey(rollNumber)) {
-                                  totalScore += (marksByRoll[rollNumber] as num?)?.toDouble() ?? 0;
+                                // Validate mandatory fields
+                                if (rollNumber.isEmpty || name.isEmpty) {
+                                  debugPrint('Skipping student with missing data: roll=$rollNumber, name=$name');
+                                  continue;
                                 }
+
+                                // Calculate total score from all core subjects
+                                double totalScore = 0;
+                                for (final subject in _coreSubjects) {
+                                  for (final markDoc in marksDocs) {
+                                    try {
+                                      final marksData = markDoc.data();
+                                      if (marksData == null) continue;
+                                      final marksSubject = (marksData as Map<String, dynamic>)['subject'] as String? ?? '';
+                                      if (marksSubject.toLowerCase() == subject.toLowerCase()) {
+                                        final marksByRoll = marksData['marksByRoll'] as Map<String, dynamic>?;
+                                        if (marksByRoll != null && marksByRoll.containsKey(rollNumber)) {
+                                          totalScore += (marksByRoll[rollNumber] as num?)?.toDouble() ?? 0;
+                                        }
+                                      }
+                                    } catch (e) {
+                                      debugPrint('Error processing mark for $subject: $e');
+                                    }
+                                  }
+                                }
+
+                                leaderboard.add(StudentLeaderboardItem(
+                                  rollNumber: rollNumber,
+                                  name: name,
+                                  totalScore: totalScore,
+                                ));
+                              } catch (e) {
+                                debugPrint('Error processing student: $e');
                               }
                             }
-                          }
 
-                          leaderboard.add(StudentLeaderboardItem(
-                            rollNumber: rollNumber,
-                            name: name,
-                            totalScore: totalScore,
-                          ));
-                        }
+                            // Sort by total score descending
+                            leaderboard.sort((a, b) => b.totalScore.compareTo(a.totalScore));
 
-                        // Sort by total score descending
-                        leaderboard.sort((a, b) => b.totalScore.compareTo(a.totalScore));
+                            // Assign ranks
+                            for (int i = 0; i < leaderboard.length; i++) {
+                              leaderboard[i].rank = i + 1;
+                            }
 
-                        // Assign ranks
-                        for (int i = 0; i < leaderboard.length; i++) {
-                          leaderboard[i].rank = i + 1;
-                        }
-
-                        if (leaderboard.isEmpty) {
-                          return const Center(
-                            child: Text(
-                              'No marks available for this class',
-                              style: TextStyle(fontSize: 16, color: Colors.grey),
-                            ),
-                          );
-                        }
-
-                        return ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: leaderboard.length,
-                          itemBuilder: (context, index) {
-                            final item = leaderboard[index];
-                            final isTop3 = item.rank != null && item.rank! <= 3;
-
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              elevation: isTop3 ? 4 : 2,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                side: BorderSide(
-                                  color: isTop3
-                                      ? AppTheme.deepBlue.withValues(alpha: 0.3)
-                                      : Colors.grey.shade300!,
-                                  width: isTop3 ? 2 : 1,
+                            if (leaderboard.isEmpty) {
+                              return const Center(
+                                child: Text(
+                                  'No marks available for this class',
+                                  style: TextStyle(fontSize: 16, color: Colors.grey),
                                 ),
-                              ),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                leading: _buildRankBadge(item.rank ?? 0),
-                                title: Text(
-                                  item.name,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
+                              );
+                            }
+
+                            return ListView.builder(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: leaderboard.length,
+                              itemBuilder: (context, index) {
+                                final item = leaderboard[index];
+                                final isTop3 = item.rank != null && item.rank! <= 3;
+
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  elevation: isTop3 ? 4 : 2,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    side: BorderSide(
+                                      color: isTop3
+                                          ? AppTheme.deepBlue.withValues(alpha: 0.3)
+                                          : Colors.grey.shade300,
+                                      width: isTop3 ? 2 : 1,
+                                    ),
                                   ),
-                                ),
-                                subtitle: Text(
-                                  'Roll: ${item.rollNumber}',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 14,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                                trailing: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      item.totalScore.toStringAsFixed(1),
+                                  child: ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 8,
+                                    ),
+                                    leading: _buildRankBadge(item.rank ?? 0),
+                                    title: Text(
+                                      item.name,
                                       style: GoogleFonts.poppins(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.deepBlue,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    Text(
-                                      'Total',
+                                    subtitle: Text(
+                                      'Roll: ${item.rollNumber}',
                                       style: GoogleFonts.poppins(
-                                        fontSize: 11,
+                                        fontSize: 14,
                                         color: Colors.grey.shade600,
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
+                                    trailing: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          item.totalScore.toStringAsFixed(1),
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.deepBlue,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Total',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
                             );
-                          },
-                        );
-                      },
-                    );
+                          } catch (e) {
+                            debugPrint('Leaderboard calculation error: $e');
+                            return const Center(child: Text('Error calculating leaderboard'));
+                          }
+                        },
+                      );
+                    } catch (e) {
+                      debugPrint('Leaderboard stream error: $e');
+                      return const Center(child: Text('Error loading data'));
+                    }
                   },
                 ),
         ),

@@ -423,7 +423,7 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
                                   ),
                                   decoration: BoxDecoration(
                                     color: _getPerformanceColor(test.percentage)
-                                        .withOpacity(0.1),
+                                        .withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(3),
                                   ),
                                   child: Text(

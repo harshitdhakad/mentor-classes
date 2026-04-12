@@ -1,4 +1,5 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
@@ -23,7 +24,7 @@ class NotificationService {
         iOS: iosSettings,
       ),
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        print('✅ Notification tapped: ${response.payload}');
+        debugPrint('✅ Notification tapped: ${response.payload}');
       },
     );
 
@@ -51,17 +52,17 @@ class NotificationService {
 
     // Get FCM token
     String? token = await _firebaseMessaging.getToken();
-    print('🔔 FCM Token: $token');
+    debugPrint('🔔 FCM Token: $token');
   }
 
   static Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-    print('📩 Handling background message: ${message.messageId}');
+    debugPrint('📩 Handling background message: ${message.messageId}');
     // Handle background message (e.g., show local notification)
     await NotificationService()._showLocalNotification(message);
   }
 
   void _handleForegroundMessage(RemoteMessage message) {
-    print('📬 Handling foreground message: ${message.messageId}');
+    debugPrint('📬 Handling foreground message: ${message.messageId}');
     _showLocalNotification(message);
   }
 

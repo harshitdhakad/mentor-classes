@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/notifications/parent_notification_stub.dart';
 import '../features/staff/student_upload_repository.dart';
@@ -713,7 +714,7 @@ class ErpRepository {
   }) async {
     var query = _academicResources
         .where('classLevel', isEqualTo: classLevel)
-        .where('isActive', isEqualTo: true) as Query<Map<String, dynamic>>;
+        .where('isActive', isEqualTo: true);
 
     if (subject != null && subject.isNotEmpty) {
       query = query.where('subject', isEqualTo: subject);
@@ -736,7 +737,7 @@ class ErpRepository {
   }) {
     var query = _academicResources
         .where('classLevel', isEqualTo: classLevel)
-        .where('isActive', isEqualTo: true) as Query<Map<String, dynamic>>;
+        .where('isActive', isEqualTo: true);
 
     if (subject != null && subject.isNotEmpty) {
       query = query.where('subject', isEqualTo: subject);
@@ -780,6 +781,7 @@ class ErpRepository {
     required String? mobileContact,
     required String? emergencyContact,
     double totalFees = 0.0,
+    String feesCriteria = 'Monthly',
   }) async {
     final docId = StudentUploadRepository.documentIdForRoll(rollNumber);
 
@@ -794,12 +796,13 @@ class ErpRepository {
       'mobileNumber': mobileContact,
       'emergencyContact': emergencyContact,
       'total_fees': totalFees,
+      'feesCriteria': feesCriteria,
       'remaining_fees': totalFees,
       'enrolledDate': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
     // Also save to students collection for backward compatibility
-    final docRef = await _students.doc(docId).set({
+    await _students.doc(docId).set({
       'studentClass': classLevel,
       'rollNumber': rollNumber,
       'name': name,
@@ -807,6 +810,7 @@ class ErpRepository {
       'mobile_contact': mobileContact,
       'emergency_contact': emergencyContact,
       'total_fees': totalFees,
+      'feesCriteria': feesCriteria,
       'remaining_fees': totalFees,
       'fees_updated_at': FieldValue.serverTimestamp(),
       'enrolledDate': FieldValue.serverTimestamp(),
@@ -948,7 +952,7 @@ class ErpRepository {
     String? testType,
     String? subject,
   }) async {
-    var query = _testMarks.where('classLevel', isEqualTo: classLevel) as Query<Map<String, dynamic>>;
+    var query = _testMarks.where('classLevel', isEqualTo: classLevel);
 
     if (testType != null && testType.isNotEmpty) {
       query = query.where('testType', isEqualTo: testType);
@@ -973,11 +977,9 @@ class ErpRepository {
       double totalCollected = 0;
       double totalPending = 0;
       int paidStudentsCount = 0;
-      final Map<int, dynamic> classwiseData = {};
 
       for (final doc in studentsSnap.docs) {
         final data = doc.data();
-        final classLevel = (data['studentClass'] as num?)?.toInt() ?? 0;
         final totalFees = _parseDouble(data['total_fees'] ?? data['totalFees'] ?? 0);
         final remainingFees = _parseDouble(data['remaining_fees'] ?? data['remainingFees'] ?? totalFees);
         final paidFees = totalFees - remainingFees;
@@ -1174,31 +1176,54 @@ class ErpRepository {
   /// [deleteStudents] if true, deletes all student data; if false, preserves student data
   Future<void> resetAllData({bool deleteStudents = true}) async {
     debugPrint('🚨 Starting complete data reset... (deleteStudents: $deleteStudents)');
-    
+
     try {
+      // Set flag to trigger persistence clearing on next app start
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('admin_reset_timestamp', DateTime.now().millisecondsSinceEpoch);
+      debugPrint('🔄 Admin reset flag set for persistence clearing');
+
       // Delete all collections except students if deleteStudents is false
       final collections = [
-        if (deleteStudents) 'students',
+        if (deleteStudents) 'users', // Main user collection
+        if (deleteStudents) 'students', // Student-specific collection
         'attendance',
-        'testMarks',
+        'test_marks', // Fixed collection name
+        'testMarks', // Legacy collection name
         'announcements',
         'homework',
-        'schedule',
-        'academicResources',
-        'testSeries',
+        'schedules',
+        'schedule', // Legacy collection name
+        'academic_resources',
+        'academicResources', // Legacy collection name
+        'test_series',
+        'testSeries', // Legacy collection name
+        'class_schedules',
+        'test_schedules',
+        'holidays',
+        'syllabus',
+        'chapters',
       ];
 
       for (final collectionName in collections) {
-        debugPrint('Deleting collection: $collectionName');
-        final batch = _db.batch();
-        final docs = await _db.collection(collectionName).get();
-        
-        for (final doc in docs.docs) {
-          batch.delete(doc.reference);
-        }
-        
-        if (docs.docs.isNotEmpty) {
-          await batch.commit();
+        try {
+          debugPrint('Deleting collection: $collectionName');
+          final batch = _db.batch();
+          final docs = await _db.collection(collectionName).get();
+
+          for (final doc in docs.docs) {
+            batch.delete(doc.reference);
+          }
+
+          if (docs.docs.isNotEmpty) {
+            await batch.commit();
+            debugPrint('✅ Deleted ${docs.docs.length} documents from $collectionName');
+          } else {
+            debugPrint('ℹ️ Collection $collectionName was empty');
+          }
+        } catch (e) {
+          debugPrint('⚠️ Error deleting collection $collectionName: $e');
+          // Continue with other collections even if one fails
         }
       }
 
@@ -1233,9 +1258,7 @@ class ErpRepository {
     }
 
     // Calculate scores from tests
-    int totalTests = 0;
     for (final testDoc in testSnap.docs) {
-      totalTests++;
       final data = testDoc.data();
       final percentageByRoll = Map<String, dynamic>.from(data['percentageByRoll'] as Map? ?? {});
       final ranksByRoll = Map<String, dynamic>.from(data['ranksByRoll'] as Map? ?? {});

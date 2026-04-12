@@ -104,126 +104,143 @@ class _StudentManagementScreenState
                   .where('role', isEqualTo: 'student')
                   .snapshots(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(child: Text('Loading students...'));
-                }
+                try {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: Text('Loading...'));
+                  }
+                  if (snapshot.hasError) {
+                    debugPrint('Student list error: ${snapshot.error}');
+                    return const Center(child: Text('Error loading students'));
+                  }
+                  if (!snapshot.hasData) {
+                    return const Center(child: Text('Loading...'));
+                  }
 
-                var students = snapshot.data!.docs;
+                  var students = snapshot.data!.docs;
 
-                // Filter by class
-                if (_selectedClass != null) {
-                  students = students
-                      .where((doc) =>
-                          (doc['studentClass'] ?? '').toString() ==
-                          _selectedClass)
-                      .toList();
-                }
+                  // Filter by class
+                  if (_selectedClass != null) {
+                    students = students
+                        .where((doc) =>
+                            (doc['studentClass'] ?? '').toString() ==
+                            _selectedClass)
+                        .toList();
+                  }
 
-                // Filter by search
-                if (_searchQuery.isNotEmpty) {
-                  students = students
-                      .where((doc) =>
-                          (doc['displayName'] ?? '')
-                              .toString()
-                              .toLowerCase()
-                              .contains(_searchQuery) ||
-                          (doc['rollNumber'] ?? '')
-                              .toString()
-                              .toLowerCase()
-                              .contains(_searchQuery))
-                      .toList();
-                }
+                  // Filter by search
+                  if (_searchQuery.isNotEmpty) {
+                    students = students
+                        .where((doc) =>
+                            (doc['displayName'] ?? '')
+                                .toString()
+                                .toLowerCase()
+                                .contains(_searchQuery) ||
+                            (doc['rollNumber'] ?? '')
+                                .toString()
+                                .toLowerCase()
+                                .contains(_searchQuery))
+                        .toList();
+                  }
 
-                if (students.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'No students found',
-                      style: GoogleFonts.poppins(
-                          fontSize: 16, color: Colors.grey),
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: students.length,
-                  itemBuilder: (context, index) {
-                    final student = students[index];
-                    final data = student.data() as Map<String, dynamic>;
-                    final isSelected = _selectedStudentIds.contains(student.id);
-
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      color: isSelected ? AppTheme.deepBlue.withValues(alpha: 0.1) : null,
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(16),
-                        leading: _isSelectionMode
-                            ? Checkbox(
-                                value: isSelected,
-                                onChanged: (value) {
-                                  setState(() {
-                                    if (value == true) {
-                                      _selectedStudentIds.add(student.id);
-                                    } else {
-                                      _selectedStudentIds.remove(student.id);
-                                    }
-                                  });
-                                },
-                              )
-                            : CircleAvatar(
-                                backgroundColor: AppTheme.deepBlue,
-                                child: Text(
-                                  (data['displayName'] ?? 'S')[0].toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                        title: Text(
-                          data['displayName'] ?? 'Unknown',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                          ),
-                        ),
-                        subtitle: Text(
-                          'Roll: ${data['rollNumber'] ?? 'N/A'} | Class: ${data['studentClass'] ?? 'N/A'}',
-                          style: GoogleFonts.poppins(fontSize: 12),
-                        ),
-                        trailing: _isSelectionMode
-                            ? null
-                            : IconButton(
-                                icon: const Icon(Icons.arrow_forward_ios),
-                                onPressed: () => _navigateToDetails(
-                                  context,
-                                  student.id,
-                                  data,
-                                ),
-                              ),
-                        onLongPress: isStaff
-                            ? () {
-                                setState(() {
-                                  _isSelectionMode = true;
-                                  _selectedStudentIds.add(student.id);
-                                });
-                              }
-                            : null,
-                        onTap: _isSelectionMode && isStaff
-                            ? () {
-                                setState(() {
-                                  if (isSelected) {
-                                    _selectedStudentIds.remove(student.id);
-                                  } else {
-                                    _selectedStudentIds.add(student.id);
-                                  }
-                                });
-                              }
-                            : null,
+                  if (students.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No students found',
+                        style: GoogleFonts.poppins(
+                            fontSize: 16, color: Colors.grey),
                       ),
                     );
-                  },
-                );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: students.length,
+                    itemBuilder: (context, index) {
+                      try {
+                        final student = students[index];
+                        final data = student.data() as Map<String, dynamic>;
+                        final isSelected = _selectedStudentIds.contains(student.id);
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          color: isSelected ? AppTheme.deepBlue.withValues(alpha: 0.1) : null,
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(16),
+                            leading: _isSelectionMode
+                                ? Checkbox(
+                                    value: isSelected,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        if (value == true) {
+                                          _selectedStudentIds.add(student.id);
+                                        } else {
+                                          _selectedStudentIds.remove(student.id);
+                                        }
+                                      });
+                                    },
+                                  )
+                                : CircleAvatar(
+                                    backgroundColor: AppTheme.deepBlue,
+                                    child: Text(
+                                      (data['displayName'] ?? 'S')[0].toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                            title: Text(
+                              data['displayName'] ?? 'Unknown',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                            ),
+                            subtitle: Text(
+                              'Roll: ${data['rollNumber'] ?? 'N/A'} | Class: ${data['studentClass'] ?? 'N/A'}',
+                              style: GoogleFonts.poppins(fontSize: 12),
+                            ),
+                            trailing: _isSelectionMode
+                                ? null
+                                : IconButton(
+                                    icon: const Icon(Icons.arrow_forward_ios),
+                                    onPressed: () => _navigateToDetails(
+                                      context,
+                                      student.id,
+                                      data,
+                                    ),
+                                  ),
+                            onLongPress: isStaff
+                                ? () {
+                                    setState(() {
+                                      _isSelectionMode = true;
+                                      _selectedStudentIds.add(student.id);
+                                    });
+                                  }
+                                : null,
+                            onTap: _isSelectionMode && isStaff
+                                ? () {
+                                    setState(() {
+                                      if (isSelected) {
+                                        _selectedStudentIds.remove(student.id);
+                                      } else {
+                                        _selectedStudentIds.add(student.id);
+                                      }
+                                    });
+                                  }
+                                : null,
+                          ),
+                        );
+                      } catch (e) {
+                        debugPrint('Error rendering student item: $e');
+                        return const SizedBox.shrink();
+                      }
+                    },
+                  );
+                } catch (e) {
+                  debugPrint('Student list widget error: $e');
+                  return const Center(child: Text('Error loading students'));
+                }
               },
             ),
           ),

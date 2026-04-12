@@ -91,137 +91,141 @@ class _HomeworkStudentScreenState extends ConsumerState<HomeworkStudentScreen> {
                     )
                     .when(
                       data: (homeworkMap) {
-                        final homework = homeworkMap[_selectedSubject];
+                        try {
+                          final homework = homeworkMap[_selectedSubject];
 
-                        if (homework == null) {
-                          return const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(24),
-                              child: Text('No homework assigned for this subject'),
-                            ),
-                          );
-                        }
+                          if (homework == null) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(24),
+                                child: Text('No homework assigned for this subject'),
+                              ),
+                            );
+                          }
 
-                        return SingleChildScrollView(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Header Card
-                              Card(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                          return SingleChildScrollView(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Header Card
+                                Card(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          homework.subject,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleLarge,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'by ${homework.assignedBy}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          homework.formattedDate,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: Colors.grey[600],
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                // Homework Text
+                                if (homework.textContent.isNotEmpty)
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        homework.subject,
+                                        'Description',
                                         style: Theme.of(context)
                                             .textTheme
-                                            .titleLarge,
+                                            .titleMedium,
                                       ),
                                       const SizedBox(height: 8),
-                                      Text(
-                                        'by ${homework.assignedBy}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall,
+                                      Card(
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(12.0),
+                                          child: Text(homework.textContent),
+                                        ),
                                       ),
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 16),
+                                    ],
+                                  ),
+                                // Images Section
+                                if (homework.imageUrls.isNotEmpty)
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
                                       Text(
-                                        homework.formattedDate,
+                                        'Images',
                                         style: Theme.of(context)
                                             .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: Colors.grey[600],
-                                            ),
+                                            .titleMedium,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      ...homework.imageUrls
+                                          .asMap()
+                                          .entries
+                                          .map((entry) =>
+                                              _buildImagePreview(entry.value))
+                                          .toList(),
+                                      const SizedBox(height: 16),
+                                    ],
+                                  ),
+                                // Attachments/Files Section
+                                if (homework.attachments.isNotEmpty)
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Files',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      ListView.builder(
+                                        shrinkWrap: true,
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        itemCount: homework.attachments.length,
+                                        itemBuilder: (context, index) {
+                                          final attachment =
+                                              homework.attachments[index];
+                                          return _buildAttachmentCard(
+                                            attachment,
+                                          );
+                                        },
                                       ),
                                     ],
                                   ),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              // Homework Text
-                              if (homework.textContent.isNotEmpty)
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Description',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Card(
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(12.0),
-                                        child: Text(homework.textContent),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                  ],
-                                ),
-                              // Images Section
-                              if (homework.imageUrls.isNotEmpty)
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Images',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    ...homework.imageUrls
-                                        .asMap()
-                                        .entries
-                                        .map((entry) =>
-                                            _buildImagePreview(entry.value))
-                                        .toList(),
-                                    const SizedBox(height: 16),
-                                  ],
-                                ),
-                              // Attachments/Files Section
-                              if (homework.attachments.isNotEmpty)
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Files',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    ListView.builder(
-                                      shrinkWrap: true,
-                                      physics:
-                                          const NeverScrollableScrollPhysics(),
-                                      itemCount: homework.attachments.length,
-                                      itemBuilder: (context, index) {
-                                        final attachment =
-                                            homework.attachments[index];
-                                        return _buildAttachmentCard(
-                                          attachment,
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
-                            ],
-                          ),
-                        );
+                              ],
+                            ),
+                          );
+                        } catch (e) {
+                          debugPrint('Error rendering homework: $e');
+                          return const Center(child: Text('Error loading homework'));
+                        }
                       },
-                      loading: () => const Center(
-                        child: SizedBox.shrink(),
-                      ),
-                      error: (error, stackTrace) => Center(
-                        child: Text('Error: $error'),
-                      ),
+                      loading: () => const Center(child: Text('Loading...')),
+                      error: (error, stackTrace) {
+                        debugPrint('Homework stream error: $error');
+                        return const Center(child: Text('Error loading homework'));
+                      },
                     ),
           ),
         ],

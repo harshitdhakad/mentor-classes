@@ -10,7 +10,6 @@ class CleanupService {
   CleanupService._internal();
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   bool _isRunning = false;
 
@@ -144,94 +143,6 @@ class CleanupService {
     } catch (e) {
       debugPrint('❌ Error cleaning up homework document: $e');
       onResult(0, 1);
-    }
-  }
-
-  /// Cleanup homework for a specific subject
-  Future<void> _cleanupSubjectHomework(
-    CollectionReference subjectRef,
-    DateTime now,
-    Function(int deleted, int failed) onResult,
-  ) async {
-    try {
-      final snapshot = await subjectRef.get();
-      int deletedCount = 0;
-      int failedCount = 0;
-
-      for (final doc in snapshot.docs) {
-        try {
-          final data = doc.data() as Map<String, dynamic>?;
-          final expiryTime = data?['expiryTime'] as dynamic;
-
-          if (expiryTime != null) {
-            final expiryDateTime = expiryTime is DateTime
-                ? expiryTime as DateTime
-                : (expiryTime as Timestamp).toDate();
-
-            // Check if homework has expired
-            if (expiryDateTime.isBefore(now) || expiryDateTime.isAtSameMomentAs(now)) {
-              debugPrint('🗑️ Deleting expired homework: ${doc.id} (expired at $expiryDateTime)');
-
-              // Delete associated files from Firebase Storage
-              await _deleteHomeworkFiles(data);
-
-              // Delete the Firestore document
-              await doc.reference.delete();
-              deletedCount++;
-            }
-          }
-        } catch (e) {
-          debugPrint('❌ Failed to delete document ${doc.id}: $e');
-          failedCount++;
-        }
-      }
-
-      onResult(deletedCount, failedCount);
-    } catch (e) {
-      debugPrint('❌ Error cleaning up subject ${subjectRef.id}: $e');
-    }
-  }
-
-  /// Delete all associated files from Firebase Storage
-  Future<void> _deleteHomeworkFiles(Map<String, dynamic>? homeworkData) async {
-    if (homeworkData == null) return;
-
-    try {
-      // Delete image URLs
-      final imageUrls = homeworkData['imageUrls'] as List<dynamic>?;
-      if (imageUrls != null) {
-        for (final url in imageUrls) {
-          if (url is String && url.isNotEmpty) {
-            await _deleteStorageFile(url);
-          }
-        }
-      }
-
-      // Delete attachments
-      final attachments = homeworkData['attachments'] as List<dynamic>?;
-      if (attachments != null) {
-        for (final attachment in attachments) {
-          if (attachment is Map<String, dynamic>) {
-            final fileUrl = attachment['url'] as String?;
-            if (fileUrl != null && fileUrl.isNotEmpty) {
-              await _deleteStorageFile(fileUrl);
-            }
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('❌ Error deleting storage files: $e');
-    }
-  }
-
-  /// Delete a file from Firebase Storage
-  Future<void> _deleteStorageFile(String url) async {
-    try {
-      final ref = FirebaseStorage.instance.refFromURL(url);
-      await ref.delete();
-      debugPrint('✅ Deleted storage file: $url');
-    } catch (e) {
-      debugPrint('⚠️ Failed to delete storage file $url: $e');
     }
   }
 

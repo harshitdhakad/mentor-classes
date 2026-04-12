@@ -64,7 +64,6 @@ class _DetailedAttendanceSummaryScreenState
 
     final classLevel = user.studentClass!;
     final rollNumber = user.rollNumber!;
-    final studentName = user.displayName;
 
     return Scaffold(
       appBar: AppBar(
@@ -82,67 +81,73 @@ class _DetailedAttendanceSummaryScreenState
             .orderBy('date', descending: false)
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: Text('Loading...'));
-          }
-          if (snapshot.hasError) {
-            return const Center(child: Text('Error loading attendance'));
-          }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Text(
-                'No attendance data available',
-                style: GoogleFonts.poppins(),
-              ),
-            );
-          }
+          try {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: Text('Loading...'));
+            }
+            if (snapshot.hasError) {
+              debugPrint('Attendance stream error: ${snapshot.error}');
+              return const Center(child: Text('Error loading attendance'));
+            }
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return Center(
+                child: Text(
+                  'No attendance data available',
+                  style: GoogleFonts.poppins(),
+                ),
+              );
+            }
 
-          // Process attendance data
-          int totalDays = 0;
-          int presentDays = 0;
-          int absentDays = 0;
-          int holidays = 0;
-          
-          for (final doc in snapshot.data!.docs) {
-            final data = doc.data() as Map<String, dynamic>;
-            final presentRolls = (data['presentRolls'] as List?)?.map((e) => e.toString()).toList() ?? [];
-            final isHoliday = data['isHoliday'] as bool? ?? false;
-            
-            if (isHoliday) {
-              holidays++;
-            } else {
-              totalDays++;
-              if (presentRolls.contains(rollNumber)) {
-                presentDays++;
-              } else {
-                absentDays++;
+            // Process attendance data
+            int totalDays = 0;
+            int presentDays = 0;
+            int absentDays = 0;
+            int holidays = 0;
+
+            for (final doc in snapshot.data!.docs) {
+              try {
+                final data = doc.data() as Map<String, dynamic>;
+                final presentRolls = (data['presentRolls'] as List?)?.map((e) => e.toString()).toList() ?? [];
+                final isHoliday = data['isHoliday'] as bool? ?? false;
+
+                if (isHoliday) {
+                  holidays++;
+                } else {
+                  totalDays++;
+                  if (presentRolls.contains(rollNumber)) {
+                    presentDays++;
+                  } else {
+                    absentDays++;
+                  }
+                }
+              } catch (e) {
+                debugPrint('Error processing attendance doc: $e');
               }
             }
-          }
-          
-          final attendancePercentage = totalDays > 0 ? (presentDays / totalDays * 100).toInt() : 0;
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Overall Stats Card
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: Colors.grey.shade200),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Overall Attendance',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
+            final attendancePercentage = totalDays > 0 ? (presentDays / totalDays * 100).toInt() : 0;
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Overall Stats Card
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Overall Attendance',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
                             fontSize: 16,
                             color: AppTheme.deepBlue,
                           ),
@@ -213,65 +218,69 @@ class _DetailedAttendanceSummaryScreenState
                     color: AppTheme.deepBlue,
                   ),
                 ),
-                const SizedBox(height: 8),
-                ...snapshot.data!.docs.map((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final date = data['date'] as String? ?? 'Unknown';
-                  final presentRolls = (data['presentRolls'] as List?)?.map((e) => e.toString()).toList() ?? [];
-                  final isHoliday = data['isHoliday'] as bool? ?? false;
-                  final isPresent = presentRolls.contains(rollNumber);
-                  
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(
-                        color: isHoliday
-                            ? Colors.orange.shade300
-                            : isPresent
-                                ? Colors.green.shade300
-                                : Colors.red.shade300,
+                  const SizedBox(height: 8),
+                  ...snapshot.data!.docs.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final date = data['date'] as String? ?? 'Unknown';
+                    final presentRolls = (data['presentRolls'] as List?)?.map((e) => e.toString()).toList() ?? [];
+                    final isHoliday = data['isHoliday'] as bool? ?? false;
+                    final isPresent = presentRolls.contains(rollNumber);
+                    
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: isHoliday
+                              ? Colors.orange.shade300
+                              : isPresent
+                                  ? Colors.green.shade300
+                                  : Colors.red.shade300,
+                        ),
                       ),
-                    ),
-                    child: ListTile(
-                      leading: Icon(
-                        isHoliday
-                            ? Icons.beach_access
-                            : isPresent
-                                ? Icons.check_circle
-                                : Icons.cancel,
-                        color: isHoliday
-                            ? Colors.orange
-                            : isPresent
-                                ? Colors.green
-                                : Colors.red,
-                      ),
-                      title: Text(
-                        date,
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                      ),
-                      trailing: Text(
-                        isHoliday
-                            ? 'Holiday'
-                            : isPresent
-                                ? 'Present'
-                                : 'Absent',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600,
+                      child: ListTile(
+                        leading: Icon(
+                          isHoliday
+                              ? Icons.beach_access
+                              : isPresent
+                                  ? Icons.check_circle
+                                  : Icons.cancel,
                           color: isHoliday
                               ? Colors.orange
                               : isPresent
                                   ? Colors.green
                                   : Colors.red,
                         ),
+                        title: Text(
+                          date,
+                          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                        ),
+                        trailing: Text(
+                          isHoliday
+                              ? 'Holiday'
+                              : isPresent
+                                  ? 'Present'
+                                  : 'Absent',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            color: isHoliday
+                                ? Colors.orange
+                                : isPresent
+                                    ? Colors.green
+                                    : Colors.red,
+                          ),
+                        ),
                       ),
-                    ),
-                  );
-                }).toList(),
-              ],
-            ),
-          );
+                    );
+                  }).toList(),
+                ],
+              ),
+            );
+          } catch (e) {
+            debugPrint('Attendance widget error: $e');
+            return const Center(child: Text('Error loading attendance'));
+          }
         },
       ),
     );

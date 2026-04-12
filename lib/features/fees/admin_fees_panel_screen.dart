@@ -75,7 +75,7 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
                             setState(() => _selectedClass = classNum);
                           },
                           backgroundColor: Colors.grey.shade100,
-                          selectedColor: AppTheme.deepBlue.withOpacity(0.2),
+                          selectedColor: AppTheme.deepBlue.withValues(alpha: 0.2),
                           labelStyle: TextStyle(
                             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                             color: isSelected ? AppTheme.deepBlue : Colors.black87,
@@ -96,191 +96,206 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
                   .where('classLevel', isEqualTo: _selectedClass)
                   .snapshots(),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: Text('Loading...'),
-                  );
-                }
-                if (snapshot.hasError) {
-                  return const Center(
-                    child: Text('Error loading fees data'),
-                  );
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Text('object-not-found'),
-                  );
-                }
+                try {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: Text('Loading...'),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    debugPrint('Fees panel error: ${snapshot.error}');
+                    return const Center(
+                      child: Text('Error loading fees data'),
+                    );
+                  }
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Center(
+                      child: Text('No data available'),
+                    );
+                  }
 
-                final students = snapshot.data!.docs;
-                int totalPaid = 0;
-                int totalPending = 0;
+                  final students = snapshot.data!.docs;
+                  int totalPaid = 0;
+                  int totalPending = 0;
 
-                for (final doc in students) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final total = (data['total_fees'] as num?)?.toDouble() ?? 0.0;
-                  final remaining = (data['remaining_fees'] as num?)?.toDouble() ?? total;
-                  final paid = total - remaining;
-                  totalPaid += paid.toInt();
-                  totalPending += remaining.toInt();
-                }
+                  for (final doc in students) {
+                    try {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final total = (data['total_fees'] as num?)?.toDouble() ?? 0.0;
+                      final remaining = (data['remaining_fees'] as num?)?.toDouble() ?? total;
+                      final paid = total - remaining;
+                      totalPaid += paid.toInt();
+                      totalPending += remaining.toInt();
+                    } catch (e) {
+                      debugPrint('Error processing fee data: $e');
+                    }
+                  }
 
-                return Column(
-                  children: [
-                    // Summary Card
-                    Container(
-                      margin: const EdgeInsets.all(16),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _SummaryItem(
-                            label: 'Total Students',
-                            value: students.length.toString(),
-                            color: AppTheme.deepBlue,
-                          ),
-                          _SummaryItem(
-                            label: 'Total Paid',
-                            value: '₹$totalPaid',
-                            color: Colors.green,
-                          ),
-                          _SummaryItem(
-                            label: 'Total Pending',
-                            value: '₹$totalPending',
-                            color: Colors.red,
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Students List
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: students.length,
-                        itemBuilder: (context, index) {
-                          final doc = students[index];
-                          final data = doc.data() as Map<String, dynamic>;
-                          final name = data['name'] as String? ?? 'Unknown';
-                          final rollNumber = data['rollNumber'] as String? ?? '';
-                          final total = (data['total_fees'] as num?)?.toDouble() ?? 0.0;
-                          final remaining = (data['remaining_fees'] as num?)?.toDouble() ?? total;
-                          final paid = total - remaining;
-                          final percentage = total > 0 ? (paid / total * 100).toInt() : 0;
-
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(
-                                color: remaining > 0 ? Colors.red.shade300 : Colors.green.shade300,
-                              ),
+                  return Column(
+                    children: [
+                      // Summary Card
+                      Container(
+                        margin: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _SummaryItem(
+                              label: 'Total Students',
+                              value: students.length.toString(),
+                              color: AppTheme.deepBlue,
                             ),
-                            child: ExpansionTile(
-                              title: Text(
-                                '$name ($rollNumber)',
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
+                            _SummaryItem(
+                              label: 'Total Paid',
+                              value: '₹$totalPaid',
+                              color: Colors.green,
+                            ),
+                            _SummaryItem(
+                              label: 'Total Pending',
+                              value: '₹$totalPending',
+                              color: Colors.red,
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Students List
+                      Expanded(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: students.length,
+                          itemBuilder: (context, index) {
+                            try {
+                              final doc = students[index];
+                              final data = doc.data() as Map<String, dynamic>;
+                              final name = data['name'] as String? ?? 'Unknown';
+                              final rollNumber = data['rollNumber'] as String? ?? '';
+                              final total = (data['total_fees'] as num?)?.toDouble() ?? 0.0;
+                              final remaining = (data['remaining_fees'] as num?)?.toDouble() ?? total;
+                              final paid = total - remaining;
+                              final percentage = total > 0 ? (paid / total * 100).toInt() : 0;
+
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(
+                                    color: remaining > 0 ? Colors.red.shade300 : Colors.green.shade300,
+                                  ),
                                 ),
-                              ),
-                              subtitle: Text(
-                                'Pending: ₹${remaining.toInt()}',
-                                style: GoogleFonts.poppins(
-                                  color: remaining > 0 ? Colors.red : Colors.green,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              trailing: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    '$percentage%',
+                                child: ExpansionTile(
+                                  title: Text(
+                                    '$name ($rollNumber)',
                                     style: GoogleFonts.poppins(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 16,
-                                      color: percentage == 100
-                                          ? Colors.green
-                                          : percentage > 50
-                                              ? Colors.orange
-                                              : Colors.red,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15,
                                     ),
                                   ),
-                                  Text(
-                                    'Paid',
+                                  subtitle: Text(
+                                    'Pending: ₹${remaining.toInt()}',
                                     style: GoogleFonts.poppins(
-                                      fontSize: 10,
-                                      color: Colors.grey.shade600,
+                                      color: remaining > 0 ? Colors.red : Colors.green,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
-                                ],
-                              ),
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                  trailing: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
-                                      _FeesDetailRow(
-                                        label: 'Total Fees',
-                                        value: '₹${total.toInt()}',
-                                        color: Colors.black87,
-                                      ),
-                                      _FeesDetailRow(
-                                        label: 'Paid Fees',
-                                        value: '₹${paid.toInt()}',
-                                        color: Colors.green,
-                                      ),
-                                      _FeesDetailRow(
-                                        label: 'Pending Fees',
-                                        value: '₹${remaining.toInt()}',
-                                        color: Colors.red,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      LinearProgressIndicator(
-                                        value: percentage / 100,
-                                        backgroundColor: Colors.grey.shade200,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          percentage == 100
+                                      Text(
+                                        '$percentage%',
+                                        style: GoogleFonts.poppins(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 16,
+                                          color: percentage == 100
                                               ? Colors.green
                                               : percentage > 50
                                                   ? Colors.orange
                                                   : Colors.red,
                                         ),
                                       ),
-                                      const SizedBox(height: 16),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: ElevatedButton.icon(
-                                              onPressed: () => _showUpdateFeesDialog(doc.id, paid, total),
-                                              icon: const Icon(Icons.edit),
-                                              label: const Text('Update Fees'),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: AppTheme.deepBluePrimary,
-                                                foregroundColor: Colors.white,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                      Text(
+                                        'Paid',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 10,
+                                          color: Colors.grey.shade600,
+                                        ),
                                       ),
                                     ],
                                   ),
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          _FeesDetailRow(
+                                            label: 'Total Fees',
+                                            value: '₹${total.toInt()}',
+                                            color: Colors.black87,
+                                          ),
+                                          _FeesDetailRow(
+                                            label: 'Paid Fees',
+                                            value: '₹${paid.toInt()}',
+                                            color: Colors.green,
+                                          ),
+                                          _FeesDetailRow(
+                                            label: 'Pending Fees',
+                                            value: '₹${remaining.toInt()}',
+                                            color: Colors.red,
+                                          ),
+                                          const SizedBox(height: 16),
+                                          LinearProgressIndicator(
+                                            value: percentage / 100,
+                                            backgroundColor: Colors.grey.shade200,
+                                            valueColor: AlwaysStoppedAnimation<Color>(
+                                              percentage == 100
+                                                  ? Colors.green
+                                                  : percentage > 50
+                                                      ? Colors.orange
+                                                      : Colors.red,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: ElevatedButton.icon(
+                                                  onPressed: () => _showUpdateFeesDialog(doc.id, paid, total),
+                                                  icon: const Icon(Icons.edit),
+                                                  label: const Text('Update Fees'),
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: AppTheme.deepBluePrimary,
+                                                    foregroundColor: Colors.white,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          );
-                        },
+                              );
+                            } catch (e) {
+                              debugPrint('Error rendering fee card: $e');
+                              return const SizedBox.shrink();
+                            }
+                          },
+                        ),
                       ),
-                    ),
-                  ],
-                );
+                    ],
+                  );
+                } catch (e) {
+                  debugPrint('Fees panel widget error: $e');
+                  return const Center(child: Text('Error loading fees data'));
+                }
               },
             ),
           ),

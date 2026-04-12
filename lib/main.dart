@@ -1,6 +1,7 @@
 // Final Build - Lead Architect: Harshit Dhakad | Founder: Yogesh Udawat
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
@@ -8,17 +9,43 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'core/hive/hive_setup.dart';
 import 'core/notifications/notification_service.dart';
+import 'services/cleanup_service.dart';
 
 // Global navigator key for showing dialogs
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+const String _adminResetKey = 'admin_reset_timestamp';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+  // Check if admin reset occurred and clear Firestore persistence
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final lastResetTimestamp = prefs.getInt(_adminResetKey);
+    final currentTimestamp = DateTime.now().millisecondsSinceEpoch;
+
+    // If reset occurred within last 5 minutes, clear persistence
+    if (lastResetTimestamp != null && (currentTimestamp - lastResetTimestamp) < 300000) {
+      debugPrint('🔄 Admin reset detected - clearing Firestore persistence...');
+      try {
+        await FirebaseFirestore.instance.clearPersistence();
+        debugPrint('✅ Firestore persistence cleared successfully');
+        // Clear the flag after clearing
+        await prefs.remove(_adminResetKey);
+      } catch (e) {
+        debugPrint('⚠️ Error clearing Firestore persistence: $e');
+      }
+    }
+  } catch (e) {
+    debugPrint('⚠️ Error checking admin reset: $e');
+  }
+
   try {
     // Firebase Initialize
     await Firebase.initializeApp(
@@ -40,7 +67,15 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('❌ Notification service init error: $e');
   }
-  
+
+  // Start cleanup service for automatic homework deletion
+  try {
+    CleanupService().startPeriodicCleanup();
+    debugPrint('✅ Cleanup service started');
+  } catch (e) {
+    debugPrint('❌ Cleanup service start error: $e');
+  }
+
   // 1. Start app immediately (don't wait for updates)
   runApp(
     ProviderScope(

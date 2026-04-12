@@ -476,7 +476,7 @@ class _DetailedStudentPerformanceScreenState
                                       vertical: 8,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: performanceColor.withOpacity(0.1),
+                                      color: performanceColor.withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Text(

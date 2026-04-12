@@ -170,7 +170,7 @@ class _EnhancedMarksUploadScreenState
                         onSelected: (_) =>
                             setState(() => _selectedTestType = type),
                         backgroundColor: Colors.grey[100],
-                        selectedColor: AppTheme.deepBluePrimary.withOpacity(0.2),
+                        selectedColor: AppTheme.deepBluePrimary.withValues(alpha: 0.2),
                         labelStyle: TextStyle(
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                           color: isSelected
@@ -717,7 +717,7 @@ class _EnhancedMarksUploadScreenState
                 boxShadow: isNg
                     ? [
                         BoxShadow(
-                          color: Colors.orange.withOpacity(0.3),
+                          color: Colors.orange.withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -781,7 +781,7 @@ class _EnhancedMarksUploadScreenState
 
       // Validate marks against maxMarks
       for (final entry in _studentMarks.entries) {
-        final data = entry.value as Map<String, dynamic>;
+        final data = entry.value;
         final isNg = (data['ng'] as bool?) ?? false;
         if (!isNg) {
           final marks = (data['marks'] as int?) ?? 0;
@@ -808,7 +808,7 @@ class _EnhancedMarksUploadScreenState
 
       for (final entry in _studentMarks.entries) {
         final roll = entry.key;
-        final data = entry.value as Map<String, dynamic>;
+        final data = entry.value;
         final isNg = (data['ng'] as bool?) ?? false;
 
         if (isNg) {
@@ -845,12 +845,6 @@ class _EnhancedMarksUploadScreenState
             }
         };
 
-        // Generate clipboard summary
-        final clipboardText = _generateClipboardSummary(currentSubject, marksByRoll, notGivenRolls, ranksByRoll, maxMarks);
-        
-        // Copy to clipboard
-        await Clipboard.setData(ClipboardData(text: clipboardText));
-
         if (_currentSubjectIndex < _subjects.length - 1) {
           // Move to next subject
           if (mounted) {
@@ -862,13 +856,21 @@ class _EnhancedMarksUploadScreenState
 
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('✅ $currentSubject marks saved! Copied to clipboard. Next: ${_subjects[_currentSubjectIndex]}'),
+                content: Text('✅ $currentSubject marks saved! Next: ${_subjects[_currentSubjectIndex]}'),
                 backgroundColor: Colors.green,
                 duration: const Duration(seconds: 3),
                 action: SnackBarAction(
-                  label: 'OK',
+                  label: 'Copy to Clipboard',
                   textColor: Colors.white,
-                  onPressed: () {},
+                  onPressed: () async {
+                    final clipboardText = await _generateClipboardSummary(currentSubject, marksByRoll, notGivenRolls, ranksByRoll, maxMarks);
+                    await Clipboard.setData(ClipboardData(text: clipboardText));
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Copied to clipboard!'), duration: Duration(seconds: 1)),
+                      );
+                    }
+                  },
                 ),
               ),
             );
@@ -896,16 +898,6 @@ class _EnhancedMarksUploadScreenState
         savedBy: 'teacher@mentorclasses.com', // TODO: Get from auth
       );
 
-      // Generate and copy clipboard summary for single test
-      final clipboardText = _generateClipboardSummary(
-        _subjectController.text.isEmpty ? 'General' : _subjectController.text,
-        marksByRoll,
-        notGivenRolls,
-        ranksByRoll,
-        maxMarks,
-      );
-      await Clipboard.setData(ClipboardData(text: clipboardText));
-
       if (mounted) {
         // Reset form
         _testNameController.clear();
@@ -918,14 +910,34 @@ class _EnhancedMarksUploadScreenState
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Marks saved successfully! Copied to clipboard.'),
+          SnackBar(
+            content: const Text('✅ Marks saved successfully!'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'Copy to Clipboard',
+              textColor: Colors.white,
+              onPressed: () async {
+                final clipboardText = await _generateClipboardSummary(
+                  _subjectController.text.isEmpty ? 'General' : _subjectController.text,
+                  marksByRoll,
+                  notGivenRolls,
+                  ranksByRoll,
+                  maxMarks,
+                );
+                await Clipboard.setData(ClipboardData(text: clipboardText));
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Copied to clipboard!'), duration: Duration(seconds: 1)),
+                  );
+                }
+              },
+            ),
           ),
         );
 
         // Refresh data
+        // ignore: unused_result
         ref.refresh(
           testMarksForClassProvider((_selectedClass, _selectedTestType, null)),
         );
@@ -989,11 +1001,7 @@ class _EnhancedMarksUploadScreenState
         savedBy: 'teacher@mentorclasses.com',
       );
     }
-    
-    // Generate overall clipboard summary
-    final overallClipboard = _generateSeriesClipboardSummary(maxMarks);
-    await Clipboard.setData(ClipboardData(text: overallClipboard));
-    
+
     if (mounted) {
       // Reset form
       _testNameController.clear();
@@ -1009,21 +1017,35 @@ class _EnhancedMarksUploadScreenState
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Test Series saved successfully! Overall summary copied to clipboard.'),
+        SnackBar(
+          content: const Text('✅ Test Series saved successfully!'),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'Copy to Clipboard',
+            textColor: Colors.white,
+            onPressed: () async {
+              final overallClipboard = await _generateSeriesClipboardSummary(maxMarks);
+              await Clipboard.setData(ClipboardData(text: overallClipboard));
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Copied to clipboard!'), duration: Duration(seconds: 1)),
+                );
+              }
+            },
+          ),
         ),
       );
 
       // Refresh data
+      // ignore: unused_result
       ref.refresh(
         testMarksForClassProvider((_selectedClass, 'series', seriesId)),
       );
     }
   }
 
-  String _generateClipboardSummary(String subject, Map<String, double> marksByRoll, List<String> notGivenRolls, Map<String, int> ranksByRoll, int maxMarks) {
+  Future<String> _generateClipboardSummary(String subject, Map<String, double> marksByRoll, List<String> notGivenRolls, Map<String, int> ranksByRoll, int maxMarks) async {
     final buffer = StringBuffer();
     buffer.writeln('═══════════════════════════════════════');
     buffer.writeln('TEST MARKS SUMMARY');
@@ -1034,35 +1056,56 @@ class _EnhancedMarksUploadScreenState
     buffer.writeln('Max Marks: $maxMarks');
     buffer.writeln('Date: ${DateTime.now().toString().split(' ')[0]}');
     buffer.writeln('═══════════════════════════════════════');
-    buffer.writeln('RANK | ROLL NO | MARKS | STATUS');
-    buffer.writeln('─────────────────────────────────────');
-    
+    buffer.writeln('RANK | ROLL NO | NAME | MARKS | STATUS');
+    buffer.writeln('──────────────────────────────────────────');
+
+    // Fetch student names from Firestore
+    final Map<String, String> rollToName = {};
+    try {
+      final studentsSnapshot = await FirebaseFirestore.instance
+          .collection('students')
+          .where('classLevel', isEqualTo: _selectedClass)
+          .get();
+      for (final doc in studentsSnapshot.docs) {
+        final data = doc.data();
+        final roll = data['roll']?.toString() ?? '';
+        final name = data['name']?.toString() ?? '';
+        if (roll.isNotEmpty && name.isNotEmpty) {
+          rollToName[roll] = name;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching student names: $e');
+    }
+
     final sortedEntries = marksByRoll.entries.toList()
       ..sort((a, b) => (ranksByRoll[a.key] ?? 999).compareTo(ranksByRoll[b.key] ?? 999));
-    
+
     for (final entry in sortedEntries) {
       final roll = entry.key;
       final marks = entry.value.toInt();
       final rank = ranksByRoll[roll] ?? '-';
-      buffer.writeln('$rank | $roll | $marks/$maxMarks | ${notGivenRolls.contains(roll) ? 'ABSENT' : 'PRESENT'}');
+      final name = rollToName[roll] ?? 'Unknown';
+      buffer.writeln('$rank | $roll | $name | $marks/$maxMarks | ${notGivenRolls.contains(roll) ? 'ABSENT' : 'PRESENT'}');
     }
-    
+
     for (final roll in notGivenRolls) {
       if (!marksByRoll.containsKey(roll)) {
-        buffer.writeln('— | $roll | NG | ABSENT');
+        final name = rollToName[roll] ?? 'Unknown';
+        buffer.writeln('— | $roll | $name | NG | ABSENT');
       }
     }
-    
+
     buffer.writeln('═══════════════════════════════════════');
     buffer.writeln('Total Students: ${marksByRoll.length + notGivenRolls.length}');
     buffer.writeln('Present: ${marksByRoll.length}');
     buffer.writeln('Absent: ${notGivenRolls.length}');
     buffer.writeln('═══════════════════════════════════════');
-    
+
     return buffer.toString();
   }
 
-  String _generateSeriesClipboardSummary(int maxMarks) {
+  Future<String> _generateSeriesClipboardSummary(int maxMarks) async {
     final buffer = StringBuffer();
     buffer.writeln('═══════════════════════════════════════');
     buffer.writeln('TEST SERIES OVERALL SUMMARY');
@@ -1073,15 +1116,34 @@ class _EnhancedMarksUploadScreenState
     buffer.writeln('Max Marks per Subject: $maxMarks');
     buffer.writeln('Date: ${DateTime.now().toString().split(' ')[0]}');
     buffer.writeln('═══════════════════════════════════════');
-    
+
+    // Fetch student names from Firestore
+    final Map<String, String> rollToName = {};
+    try {
+      final studentsSnapshot = await FirebaseFirestore.instance
+          .collection('students')
+          .where('classLevel', isEqualTo: _selectedClass)
+          .get();
+      for (final doc in studentsSnapshot.docs) {
+        final data = doc.data();
+        final roll = data['roll']?.toString() ?? '';
+        final name = data['name']?.toString() ?? '';
+        if (roll.isNotEmpty && name.isNotEmpty) {
+          rollToName[roll] = name;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching student names: $e');
+    }
+
     for (final subject in _subjects) {
       final subjectMarks = _seriesMarksBySubject[subject] ?? {};
       buffer.writeln('\n--- $subject ---');
       buffer.writeln('Students marked: ${subjectMarks.length}');
-      
+
       int presentCount = 0;
       int absentCount = 0;
-      
+
       for (final entry in subjectMarks.entries) {
         final isNg = (entry.value['ng'] as bool?) ?? false;
         if (isNg) {
@@ -1090,15 +1152,15 @@ class _EnhancedMarksUploadScreenState
           presentCount++;
         }
       }
-      
+
       buffer.writeln('Present: $presentCount');
       buffer.writeln('Absent: $absentCount');
     }
-    
+
     buffer.writeln('\n═══════════════════════════════════════');
     buffer.writeln('Total Subjects: ${_subjects.length}');
     buffer.writeln('═══════════════════════════════════════');
-    
+
     return buffer.toString();
   }
 }

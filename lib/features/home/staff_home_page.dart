@@ -86,7 +86,7 @@ class _StaffHomePageState extends ConsumerState<StaffHomePage> {
                             setState(() => _selectedClass = classNum);
                           },
                           backgroundColor: Colors.grey.shade100,
-                          selectedColor: AppTheme.deepBlue.withOpacity(0.2),
+                          selectedColor: AppTheme.deepBlue.withValues(alpha: 0.2),
                           labelStyle: TextStyle(
                             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                             color: isSelected ? AppTheme.deepBlue : Colors.black87,

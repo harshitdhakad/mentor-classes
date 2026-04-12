@@ -47,7 +47,7 @@ class _BatchManagerScreenState extends ConsumerState<BatchManagerScreen> {
           // Class Selector
           Container(
             padding: const EdgeInsets.all(16),
-            color: AppTheme.deepBlueContainer.withOpacity(0.1),
+            color: AppTheme.deepBlueContainer.withValues(alpha: 0.1),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -185,7 +185,7 @@ class _BatchManagerScreenState extends ConsumerState<BatchManagerScreen> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: colors[student.colorIndex].withOpacity(0.2),
+                  color: colors[student.colorIndex].withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
@@ -244,7 +244,7 @@ class _BatchManagerScreenState extends ConsumerState<BatchManagerScreen> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
+                        color: statusColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -347,104 +347,126 @@ class _BatchManagerScreenState extends ConsumerState<BatchManagerScreen> {
     final mobileController = TextEditingController();
     final feesController = TextEditingController();
     final passwordController = TextEditingController();
+    String feesCriteria = 'Monthly';
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Student'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Name',
-                  border: OutlineInputBorder(),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add Student'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name *',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: rollController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Roll Number',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: rollController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Roll Number *',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: passwordController,
-                decoration: const InputDecoration(
-                  labelText: 'Password (for login)',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: passwordController,
+                  decoration: const InputDecoration(
+                    labelText: 'Password (for login) *',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: mobileController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Mobile (Optional)',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: mobileController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Mobile (Optional)',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: feesController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Total Fees (Optional)',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: feesController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Total Fees *',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: feesCriteria,
+                  decoration: const InputDecoration(
+                    labelText: 'Fees Criteria *',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Monthly', child: Text('Monthly')),
+                    DropdownMenuItem(value: 'Lumpsum', child: Text('Lumpsum')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setDialogState(() => feesCriteria = value);
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isEmpty || rollController.text.isEmpty || passwordController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please fill required fields')),
-                );
-                return;
-              }
-
-              try {
-                final repo = ref.read(erpRepositoryProvider);
-                final fees = double.tryParse(feesController.text) ?? 0.0;
-
-                await repo.addStudentManual(
-                  classLevel: _selectedClass,
-                  rollNumber: rollController.text,
-                  name: nameController.text,
-                  password: passwordController.text,
-                  mobileContact: mobileController.text.isEmpty ? null : mobileController.text,
-                  emergencyContact: null,
-                  totalFees: fees,
-                );
-
-                if (mounted) {
-                  Navigator.pop(context);
-                  ref.refresh(studentsByClassEnhancedProvider(_selectedClass));
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.isEmpty || rollController.text.isEmpty || passwordController.text.isEmpty || feesController.text.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('✅ Student added successfully!')),
+                    const SnackBar(content: Text('Please fill required fields')),
+                  );
+                  return;
+                }
+
+                try {
+                  final repo = ref.read(erpRepositoryProvider);
+                  final fees = double.tryParse(feesController.text) ?? 0.0;
+
+                  await repo.addStudentManual(
+                    classLevel: _selectedClass,
+                    rollNumber: rollController.text,
+                    name: nameController.text,
+                    password: passwordController.text,
+                    mobileContact: mobileController.text.isEmpty ? null : mobileController.text,
+                    emergencyContact: null,
+                    totalFees: fees,
+                    feesCriteria: feesCriteria,
+                  );
+
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ref.refresh(studentsByClassEnhancedProvider(_selectedClass));
+                    // ignore: unused_result
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('✅ Student added successfully!')),
+                    );
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e')),
                   );
                 }
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: $e')),
-                );
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -494,6 +516,7 @@ class _BatchManagerScreenState extends ConsumerState<BatchManagerScreen> {
 
                 if (mounted) {
                   Navigator.pop(context);
+                  // ignore: unused_result
                   ref.refresh(studentsByClassEnhancedProvider(_selectedClass));
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('✅ Student updated!')),
@@ -531,6 +554,7 @@ class _BatchManagerScreenState extends ConsumerState<BatchManagerScreen> {
 
                 if (mounted) {
                   Navigator.pop(context);
+                  // ignore: unused_result
                   ref.refresh(studentsByClassEnhancedProvider(_selectedClass));
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Student removed')),
@@ -604,6 +628,7 @@ class _BatchManagerScreenState extends ConsumerState<BatchManagerScreen> {
 
                 if (mounted) {
                   Navigator.pop(context);
+                  // ignore: unused_result
                   ref.refresh(studentsByClassEnhancedProvider(_selectedClass));
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('✅ Fees updated!')),

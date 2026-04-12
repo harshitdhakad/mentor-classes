@@ -16,56 +16,67 @@ class StaffClassPerformanceWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('test_marks')
-          .where('classLevel', isEqualTo: classLevel)
-          .orderBy('createdAt', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: Text('Loading...'));
-        }
-        if (snapshot.hasError) {
-          return const Center(child: Text('Error loading data'));
-        }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'No test data available for Class $classLevel',
-                style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
-              ),
-            ),
-          );
-        }
+    try {
+      return StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('test_marks')
+            .where('classLevel', isEqualTo: classLevel)
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          try {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: Text('Loading...'));
+            }
+            if (snapshot.hasError) {
+              debugPrint('Class performance error: ${snapshot.error}');
+              return const Center(child: Text('Error loading data'));
+            }
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'No test data available for Class $classLevel',
+                    style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+                  ),
+                ),
+              );
+            }
 
-        // Process data from StreamBuilder
-        final data = _processClassPerformanceData(snapshot.data!.docs, classLevel);
-        return SingleChildScrollView(
-          child: Column(
-            children: [
-              _ClassStatsCard(data: data),
-              const SizedBox(height: 12),
-              _TopPerformersCard(
-                title: '🥇 Top 3 Performers',
-                students: data.topThree,
+            // Process data from StreamBuilder
+            final data = _processClassPerformanceData(snapshot.data!.docs, classLevel);
+            return SingleChildScrollView(
+              child: Column(
+                children: [
+                  _ClassStatsCard(data: data),
+                  const SizedBox(height: 12),
+                  _TopPerformersCard(
+                    title: '🥇 Top 3 Performers',
+                    students: data.topThree,
+                  ),
+                  const SizedBox(height: 12),
+                  _TopPerformersCard(
+                    title: '⭐ Top 5 Performers',
+                    students: data.topFive,
+                  ),
+                  const SizedBox(height: 12),
+                  _NeedsImprovementCard(students: data.needsImprovement),
+                  const SizedBox(height: 12),
+                ],
               ),
-              const SizedBox(height: 12),
-              _TopPerformersCard(
-                title: '⭐ Top 5 Performers',
-                students: data.topFive,
-              ),
-              const SizedBox(height: 12),
-              _NeedsImprovementCard(students: data.needsImprovement),
-              const SizedBox(height: 12),
-            ],
-          ),
-        );
-      },
-    );
+            );
+          } catch (e) {
+            debugPrint('Class performance widget error: $e');
+            return const Center(child: Text('Error loading data'));
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('Class performance build error: $e');
+      return const Center(child: Text('Error loading widget'));
+    }
   }
 
   static _ClassPerformanceData _processClassPerformanceData(
@@ -142,7 +153,7 @@ class StaffClassPerformanceWidget extends ConsumerWidget {
         needsImprovement: needsImprovement,
       );
     } catch (e) {
-      print('Error processing class performance: $e');
+      debugPrint('Error processing class performance: $e');
       return _ClassPerformanceData(
         classLevel: classLevel,
         totalTests: 0,
@@ -311,7 +322,7 @@ class _TopPerformersCard extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: AppTheme.deepBlue.withOpacity(0.1),
+                        color: AppTheme.deepBlue.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -448,7 +459,7 @@ class _NeedsImprovementCard extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
+                        color: statusColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -487,7 +498,7 @@ class _StatItem extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, color: Colors.white.withOpacity(0.8), size: 24),
+        Icon(icon, color: Colors.white.withValues(alpha: 0.8), size: 24),
         const SizedBox(height: 8),
         Text(
           value,
@@ -502,7 +513,7 @@ class _StatItem extends StatelessWidget {
           label,
           style: GoogleFonts.poppins(
             fontSize: 10,
-            color: Colors.white.withOpacity(0.7),
+            color: Colors.white.withValues(alpha: 0.7),
           ),
         ),
       ],

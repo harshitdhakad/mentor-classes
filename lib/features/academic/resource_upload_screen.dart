@@ -71,16 +71,6 @@ class _ResourceUploadScreenState extends ConsumerState<ResourceUploadScreen> {
       );
     }
 
-    // No class selected check
-    if (selectedClass == null) {
-      return const Center(
-        child: Text(
-          'object-not-found',
-          style: TextStyle(fontSize: 16),
-        ),
-      );
-    }
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -135,7 +125,7 @@ class _ResourceUploadScreenState extends ConsumerState<ResourceUploadScreen> {
                       onSelected: (_) =>
                           setState(() => _selectedResourceType = type),
                       backgroundColor: Colors.grey[100],
-                      selectedColor: AppTheme.deepBluePrimary.withOpacity(0.2),
+                      selectedColor: AppTheme.deepBluePrimary.withValues(alpha: 0.2),
                       labelStyle: TextStyle(
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                         color: isSelected
@@ -166,7 +156,7 @@ class _ResourceUploadScreenState extends ConsumerState<ResourceUploadScreen> {
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
-                  value: _selectedSubject,
+                  initialValue: _selectedSubject,
                   items: _subjects
                       .map((subject) =>
                           DropdownMenuItem(value: subject, child: Text(subject)))
@@ -501,9 +491,6 @@ class _ResourceUploadScreenState extends ConsumerState<ResourceUploadScreen> {
       // Validate storage path
       if (storagePath.isEmpty) {
         throw Exception('Storage path cannot be empty');
-      }
-      if (selectedClass == null) {
-        throw Exception('Class level is null - mandatory field missing');
       }
 
       // STEP 1: Check if folder path exists

@@ -111,7 +111,7 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
                                   radius: 45,
                                   backgroundColor: AppTheme.deepBlue,
                                   child: Text(
-                                    (user.displayName ?? 'S')[0].toUpperCase(),
+                                    user.displayName[0].toUpperCase(),
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
@@ -125,7 +125,7 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        user.displayName ?? 'Unknown',
+                                        user.displayName,
                                         style: GoogleFonts.poppins(
                                           fontSize: 20,
                                           fontWeight: FontWeight.w700,
@@ -133,7 +133,7 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Roll: ${user.rollNumber ?? 'N/A'}',
+                                  'Roll: ${user.rollNumber}',
                                   style: GoogleFonts.poppins(
                                     fontSize: 14,
                                     color: Colors.grey.shade700,
@@ -165,7 +165,7 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _buildInfoCard('Name', user.displayName ?? 'N/A'),
+                  _buildInfoCard('Name', user.displayName),
                   _buildInfoCard('Roll Number', user.rollNumber ?? 'N/A'),
                   _buildInfoCard('Class', '${user.studentClass ?? 'N/A'}'),
                   _buildInfoCard('Email', user.email ?? 'N/A'),

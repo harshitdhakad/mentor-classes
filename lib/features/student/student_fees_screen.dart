@@ -16,8 +16,6 @@ class StudentFeesScreen extends ConsumerStatefulWidget {
 }
 
 class _StudentFeesScreenState extends ConsumerState<StudentFeesScreen> {
-  final _currencyFormatter = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
-
   double _parseDouble(dynamic value) {
     if (value is double) return value;
     if (value is int) return value.toDouble();

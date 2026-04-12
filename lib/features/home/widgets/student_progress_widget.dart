@@ -263,7 +263,7 @@ class _ProgressChartCard extends StatelessWidget {
                         show: true,
                         gradient: LinearGradient(
                           colors: [
-                            AppTheme.deepBlue.withOpacity(0.1),
+                            AppTheme.deepBlue.withValues(alpha: 0.1),
                             Colors.transparent,
                           ],
                           begin: Alignment.topCenter,
@@ -360,7 +360,7 @@ class _StatBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppTheme.deepBlue.withOpacity(0.1),
+        color: AppTheme.deepBlue.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Column(

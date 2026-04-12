@@ -82,16 +82,6 @@ class _HomeworkTeacherScreenState extends ConsumerState<HomeworkTeacherScreen> {
       );
     }
 
-    // Class selection validation
-    if (_classLevel == null) {
-      return const Center(
-        child: Text(
-          'object-not-found',
-          style: TextStyle(fontSize: 16),
-        ),
-      );
-    }
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -112,7 +102,7 @@ class _HomeworkTeacherScreenState extends ConsumerState<HomeworkTeacherScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<int>(
-            value: _classLevel,
+            initialValue: _classLevel,
             decoration: const InputDecoration(labelText: 'Class'),
             items: [
               for (var c = StudentClassLevels.min; c <= StudentClassLevels.max; c++)

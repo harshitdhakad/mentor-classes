@@ -142,10 +142,13 @@ abstract final class StudentExcelParser {
         continue;
       }
 
+      // Robust null-safe defaults for all fields
       final fees = double.tryParse(feesRaw) ?? 0.0;
       final feesCriteria = feesCriteriaRaw.isNotEmpty ? feesCriteriaRaw : 'Monthly';
-      
-      if (name.isNotEmpty && roll.isNotEmpty && password.isNotEmpty && fees > 0) {
+      final mobileNumber = mobile.isNotEmpty ? mobile : '';
+      final emergencyContact = emerg.isNotEmpty ? emerg : '';
+
+      if (name.isNotEmpty && roll.isNotEmpty && password.isNotEmpty) {
         rows.add(
           ParsedStudentRow(
             rowNumber: rowNum,
@@ -155,8 +158,8 @@ abstract final class StudentExcelParser {
             classLevel: classLevel,
             fees: fees,
             feesCriteria: feesCriteria,
-            mobileNumber: mobile,
-            emergencyContact: emerg,
+            mobileNumber: mobileNumber,
+            emergencyContact: emergencyContact,
           ),
         );
       }

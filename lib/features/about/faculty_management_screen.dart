@@ -251,7 +251,7 @@ class _FacultyCard extends StatelessWidget {
             width: double.infinity,
             height: 150,
             decoration: BoxDecoration(
-              color: AppTheme.deepBlue.withOpacity(0.1),
+              color: AppTheme.deepBlue.withValues(alpha: 0.1),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
@@ -263,7 +263,7 @@ class _FacultyCard extends StatelessWidget {
                     child: Icon(
                       Icons.person,
                       size: 60,
-                      color: AppTheme.deepBlue.withOpacity(0.3),
+                      color: AppTheme.deepBlue.withValues(alpha: 0.3),
                     ),
                   ),
           ),

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 class HomeworkFile {
@@ -119,7 +120,7 @@ class HomeworkService {
         filePath,
         onReceiveProgress: (received, total) {
           if (total != -1) {
-            print('Download progress: ${(received / total * 100).toStringAsFixed(0)}%');
+            debugPrint('Download progress: ${(received / total * 100).toStringAsFixed(0)}%');
           }
         },
       );

@@ -54,17 +54,19 @@ class _ResourcesViewScreenState extends ConsumerState<ResourcesViewScreen> {
                 ...subjects.map((subject) => DropdownMenuItem(
                   value: subject,
                   child: Text(subject),
-                )),
-              ],
+                ))],
               onChanged: (value) {
                 setState(() => _selectedSubject = value);
               },
             ),
             loading: () => const SizedBox(
               height: 40,
-              child: Center(child: CircularProgressIndicator()),
+              child: Center(child: Text('Loading...')),
             ),
-            error: (err, stack) => Text('Error loading subjects: $err'),
+            error: (err, stack) {
+              debugPrint('Subjects error: $err');
+              return const Center(child: Text('Error loading subjects'));
+            },
           ),
         ),
         const Divider(height: 0),
@@ -72,53 +74,62 @@ class _ResourcesViewScreenState extends ConsumerState<ResourcesViewScreen> {
         Expanded(
           child: resourcesAsync.when(
             data: (resources) {
-              if (resources.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.folder_open,
-                        size: 64,
-                        color: Colors.grey[300],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No resources available',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
+              try {
+                if (resources.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.folder_open,
+                          size: 64,
+                          color: Colors.grey[300],
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Resources will appear here',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[500],
+                        const SizedBox(height: 16),
+                        Text(
+                          'No resources available',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }
+                        const SizedBox(height: 8),
+                        Text(
+                          'Resources will appear here',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
 
-              return ListView.builder(
-                padding: const EdgeInsets.all(12),
-                itemCount: resources.length,
-                itemBuilder: (context, index) {
-                  final resource = resources[index];
-                  return _buildResourceCard(context, resource);
-                },
-              );
+                return ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: resources.length,
+                  itemBuilder: (context, index) {
+                    try {
+                      final resource = resources[index];
+                      return _buildResourceCard(context, resource);
+                    } catch (e) {
+                      debugPrint('Error rendering resource card: $e');
+                      return const SizedBox.shrink();
+                    }
+                  },
+                );
+              } catch (e) {
+                debugPrint('Error rendering resources: $e');
+                return const Center(child: Text('Error loading resources'));
+              }
             },
-            loading: () => const Center(
-              child: CircularProgressIndicator(),
-            ),
-            error: (err, stack) => Center(
-              child: Text('Error loading resources: $err'),
-            ),
+            loading: () => const Center(child: Text('Loading...')),
+            error: (err, stack) {
+              debugPrint('Resources error: $err');
+              return const Center(child: Text('Error loading resources'));
+            },
           ),
         ),
       ],
@@ -141,7 +152,7 @@ class _ResourcesViewScreenState extends ConsumerState<ResourcesViewScreen> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: _getFileTypeColor(resource.fileType).withOpacity(0.1),
+                  color: _getFileTypeColor(resource.fileType).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
@@ -175,7 +186,7 @@ class _ResourcesViewScreenState extends ConsumerState<ResourcesViewScreen> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: AppTheme.deepBluePrimary.withOpacity(0.1),
+                            color: AppTheme.deepBluePrimary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(

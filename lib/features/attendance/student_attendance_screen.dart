@@ -104,76 +104,86 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
                 .orderBy('dateKey')
                 .snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return const Center(child: Text('Error loading attendance'));
-              }
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(child: Text('No attendance data for this month'));
-              }
-
-              final docs = snapshot.data!.docs.cast<QueryDocumentSnapshot<Map<String, dynamic>>>();
-              var present = 0;
-              var total = 0;
-              var holidays = 0;
-              var absent = 0;
-              for (final d in docs) {
-                final data = d.data() as Map<String, dynamic>?;
-                if (data == null) continue;
-                if (data['isHoliday'] == true) {
-                  holidays++;
-                  continue;
+              try {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: Text('Loading...'));
                 }
-                total++;
-                final r = data['records'] as Map<String, dynamic>?;
-                if (r != null && r[roll] == true) {
-                  present++;
-                } else {
-                  absent++;
+                if (snapshot.hasError) {
+                  debugPrint('Student attendance error: ${snapshot.error}');
+                  return const Center(child: Text('Error loading attendance'));
                 }
-              }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(child: Text('No attendance data for this month'));
+                }
 
-              return Column(
-                children: [
-                  // Stats Card
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.grey.shade200),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _StatItem(label: 'Work Days', value: '$total', color: Colors.black87),
-                            _StatItem(label: 'Present', value: '$present', color: Colors.green),
-                            _StatItem(label: 'Absent', value: '$absent', color: Colors.red),
-                            _StatItem(label: 'Holidays', value: '$holidays', color: Colors.blue),
-                          ],
+                final docs = snapshot.data!.docs.cast<QueryDocumentSnapshot<Map<String, dynamic>>>();
+                var present = 0;
+                var total = 0;
+                var holidays = 0;
+                var absent = 0;
+                for (final d in docs) {
+                  try {
+                    final data = d.data() as Map<String, dynamic>?;
+                    if (data == null) continue;
+                    if (data['isHoliday'] == true) {
+                      holidays++;
+                      continue;
+                    }
+                    total++;
+                    final r = data['records'] as Map<String, dynamic>?;
+                    if (r != null && r[roll] == true) {
+                      present++;
+                    } else {
+                      absent++;
+                    }
+                  } catch (e) {
+                    debugPrint('Error processing attendance doc: $e');
+                  }
+                }
+
+                return Column(
+                  children: [
+                    // Stats Card
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _StatItem(label: 'Work Days', value: '$total', color: Colors.black87),
+                              _StatItem(label: 'Present', value: '$present', color: Colors.green),
+                              _StatItem(label: 'Absent', value: '$absent', color: Colors.red),
+                              _StatItem(label: 'Holidays', value: '$holidays', color: Colors.blue),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  // Calendar Grid
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _MonthDotsGrid(
-                        month: _month,
-                        roll: roll,
-                        classLevel: c,
-                        attendanceDocs: docs,
+                    // Calendar Grid
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _MonthDotsGrid(
+                          month: _month,
+                          roll: roll,
+                          classLevel: c,
+                          attendanceDocs: docs,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              );
+                  ],
+                );
+              } catch (e) {
+                debugPrint('Student attendance widget error: $e');
+                return const Center(child: Text('Error loading attendance'));
+              }
             },
           ),
         ),

@@ -75,7 +75,7 @@ class _EnhancedLeaderboardScreenState extends ConsumerState<EnhancedLeaderboardS
                                 });
                               },
                               backgroundColor: Colors.white,
-                              selectedColor: AppTheme.deepBlue.withOpacity(0.2),
+                              selectedColor: AppTheme.deepBlue.withValues(alpha: 0.2),
                               labelStyle: TextStyle(
                                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                                 color: isSelected ? AppTheme.deepBlue : Colors.black87,
@@ -212,13 +212,11 @@ class _TestWiseLeaderboard extends ConsumerWidget {
   final int classLevel;
   final String testName;
   final UserModel? user;
-  final bool isSeries;
 
   const _TestWiseLeaderboard({
     required this.classLevel,
     required this.testName,
     this.user,
-    this.isSeries = false,
   });
 
   static double _parseDouble(dynamic value) {
@@ -365,11 +363,10 @@ class _TestWiseLeaderboard extends ConsumerWidget {
                           isNg ? 'N/G' : '$mark / $maxMarks',
                           style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                         ),
-                        if (!isSeries)
-                          Text(
-                            rank == 0 ? '—' : '$percentage%',
-                            style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
-                          ),
+                        Text(
+                          rank == 0 ? '—' : '$percentage%',
+                          style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+                        ),
                       ],
                     ),
                   ),
@@ -456,16 +453,34 @@ class _SeriesCard extends ConsumerWidget {
                 return const SizedBox(height: 50, child: Center(child: Text('Error loading data')));
               }
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const SizedBox(height: 50, child: Center(child: Text('No data')));
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.trending_up, size: 60, color: Colors.grey.shade300),
+                      const SizedBox(height: 12),
+                      Text('No test data available', style: GoogleFonts.poppins()),
+                    ],
+                  ),
+                );
               }
 
+              // Define target subjects for total score calculation
+              const targetSubjects = {'SST', 'Science', 'Maths', 'English'};
+              
+              // Calculate overall scores by combining tests from target subjects
               final studentScores = <String, double>{};
-              var maxMark = 0.0;
+              final studentStats = <String, Map<String, dynamic>>{};
+              final studentSubjectScores = <String, Map<String, double>>{};
 
               for (final doc in snapshot.data!.docs) {
                 final data = doc.data() as Map<String, dynamic>;
-                final marks = data['marks'] as Map<String, dynamic>;
-                maxMark += _parseDouble(data['maxMarks'] ?? 100);
+                final subject = (data['subject'] as String? ?? '').toLowerCase();
+                final marks = data['marksByRoll'] as Map<String, dynamic>? ?? {};
+
+                // Only include tests from target subjects
+                final isTargetSubject = targetSubjects.any((s) => subject.contains(s.toLowerCase()));
+                if (!isTargetSubject) continue;
 
                 marks.forEach((roll, mark) {
                   studentScores.putIfAbsent(roll, () => 0);
@@ -482,7 +497,6 @@ class _SeriesCard extends ConsumerWidget {
                 itemCount: ranked.length,
                 itemBuilder: (context, idx) {
                   final entry = ranked[idx];
-                  final percentage = (entry.value / maxMark * 100).toStringAsFixed(1);
                   final roll = entry.key;
                   final isCurrentUser = user?.role.name == 'student' && user?.rollNumber == roll;
 
@@ -629,8 +643,7 @@ class _OverallPerformanceLeaderboard extends ConsumerWidget {
           final data = doc.data() as Map<String, dynamic>;
           final subject = (data['subject'] as String? ?? '').toLowerCase();
           final marks = data['marksByRoll'] as Map<String, dynamic>? ?? {};
-          final maxMarks = _parseDouble(data['maxMarks'] ?? 100);
-          
+
           // Only include tests from target subjects
           final isTargetSubject = targetSubjects.any((s) => subject.contains(s.toLowerCase()));
           if (!isTargetSubject) continue;

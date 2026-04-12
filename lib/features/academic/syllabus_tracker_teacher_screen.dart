@@ -183,7 +183,7 @@ class _SyllabusTrackerTeacherScreenState extends ConsumerState<SyllabusTrackerTe
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
-                    value: _selectedClass,
+                    initialValue: _selectedClass,
                     decoration: const InputDecoration(border: OutlineInputBorder()),
                     items: List.generate(
                       StudentClassLevels.max - StudentClassLevels.min + 1,

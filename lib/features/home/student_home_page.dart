@@ -111,68 +111,74 @@ class StudentHomePage extends ConsumerWidget {
                   .where('date', isEqualTo: DateTime.now().toString().split(' ')[0])
                   .snapshots(),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: Text('Loading...'));
-                }
-                if (snapshot.hasError) {
-                  return const Center(child: Text('Error loading attendance'));
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                try {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: Text('Loading...'));
+                  }
+                  if (snapshot.hasError) {
+                    debugPrint('Attendance stream error: ${snapshot.error}');
+                    return const Center(child: Text('Error loading attendance'));
+                  }
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.grey.shade600),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Attendance: Not Uploaded',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  // Check if current student is marked present or absent
+                  final attendanceDoc = snapshot.data!.docs.first;
+                  final data = attendanceDoc.data() as Map<String, dynamic>;
+                  final records = data['records'] as Map<String, dynamic>?;
+                  final isPresent = records != null && records[user.rollNumber] == true;
+
                   return Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: isPresent ? Colors.green.shade50 : Colors.red.shade50,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300),
+                      border: Border.all(color: isPresent ? Colors.green.shade300 : Colors.red.shade300),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.info_outline, color: Colors.grey.shade600),
+                        Icon(
+                          isPresent ? Icons.check_circle : Icons.cancel,
+                          color: isPresent ? Colors.green : Colors.red,
+                        ),
                         const SizedBox(width: 12),
                         Text(
-                          'Attendance: Not Uploaded',
+                          'Today: ${isPresent ? 'Present' : 'Absent'}',
                           style: GoogleFonts.poppins(
-                            fontSize: 14,
+                            fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade700,
+                            color: isPresent ? Colors.green : Colors.red,
                           ),
                         ),
                       ],
                     ),
                   );
+                } catch (e) {
+                  debugPrint('Attendance widget error: $e');
+                  return const Center(child: Text('Error loading attendance'));
                 }
-                
-                // Check if current student is marked present or absent
-                final attendanceDoc = snapshot.data!.docs.first;
-                final data = attendanceDoc.data() as Map<String, dynamic>;
-                final records = data['records'] as Map<String, dynamic>?;
-                final isPresent = records != null && records[user.rollNumber] == true;
-                
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isPresent ? Colors.green.shade50 : Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isPresent ? Colors.green.shade300 : Colors.red.shade300),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isPresent ? Icons.check_circle : Icons.cancel,
-                        color: isPresent ? Colors.green : Colors.red,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Today: ${isPresent ? 'Present' : 'Absent'}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: isPresent ? Colors.green : Colors.red,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
               },
             ),
           if (hasClass) const SizedBox(height: 20),
