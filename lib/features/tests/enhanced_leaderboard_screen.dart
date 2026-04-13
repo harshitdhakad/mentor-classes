@@ -259,8 +259,9 @@ class _TestWiseLeaderboard extends ConsumerWidget {
         // Fetch student names
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
-              .collection('students')
-              .where('classLevel', isEqualTo: classLevel)
+              .collection('users')
+              .where('studentClass', isEqualTo: classLevel)
+              .where('role', isEqualTo: 'student')
               .snapshots(),
           builder: (context, studentsSnapshot) {
             if (studentsSnapshot.connectionState == ConnectionState.waiting) {
@@ -274,7 +275,7 @@ class _TestWiseLeaderboard extends ConsumerWidget {
             for (final doc in studentsSnapshot.data!.docs) {
               final data = doc.data() as Map<String, dynamic>?;
               if (data != null) {
-                studentDataMap[data['roll']?.toString() ?? ''] = data['name']?.toString() ?? 'Unknown';
+                studentDataMap[data['rollNumber']?.toString() ?? data['rollNo']?.toString() ?? data['roll']?.toString() ?? ''] = data['displayName']?.toString() ?? data['name']?.toString() ?? 'Unknown';
               }
             }
 

@@ -866,8 +866,8 @@ class ErpRepository {
 
     for (final doc in snap.docs) {
       final data = doc.data();
-      final roll = (data['rollNumber'] ?? doc.id).toString();
-      final name = (data['displayName'] ?? 'Student').toString();
+      final roll = (data['rollNumber'] ?? data['rollNo'] ?? data['roll']).toString();
+      final name = (data['displayName'] ?? data['name'] ?? 'Student').toString();
 
       if (roll.isNotEmpty) {
         final totalFees = _parseDouble(data['total_fees'] ?? data['totalFees'] ?? 0);

@@ -1079,13 +1079,14 @@ class _EnhancedMarksUploadScreenState
     final Map<String, String> rollToName = {};
     try {
       final studentsSnapshot = await FirebaseFirestore.instance
-          .collection('students')
-          .where('classLevel', isEqualTo: _selectedClass)
+          .collection('users')
+          .where('studentClass', isEqualTo: _selectedClass)
+          .where('role', isEqualTo: 'student')
           .get();
       for (final doc in studentsSnapshot.docs) {
         final data = doc.data();
-        final roll = data['roll']?.toString() ?? '';
-        final name = data['name']?.toString() ?? '';
+        final roll = data['rollNumber']?.toString() ?? data['rollNo']?.toString() ?? data['roll']?.toString() ?? '';
+        final name = data['displayName']?.toString() ?? data['name']?.toString() ?? '';
         if (roll.isNotEmpty && name.isNotEmpty) {
           rollToName[roll] = name;
         }
@@ -1137,13 +1138,14 @@ class _EnhancedMarksUploadScreenState
     final Map<String, String> rollToName = {};
     try {
       final studentsSnapshot = await FirebaseFirestore.instance
-          .collection('students')
-          .where('classLevel', isEqualTo: _selectedClass)
+          .collection('users')
+          .where('studentClass', isEqualTo: _selectedClass)
+          .where('role', isEqualTo: 'student')
           .get();
       for (final doc in studentsSnapshot.docs) {
         final data = doc.data();
-        final roll = data['roll']?.toString() ?? '';
-        final name = data['name']?.toString() ?? '';
+        final roll = data['rollNumber']?.toString() ?? data['rollNo']?.toString() ?? data['roll']?.toString() ?? '';
+        final name = data['displayName']?.toString() ?? data['name']?.toString() ?? '';
         if (roll.isNotEmpty && name.isNotEmpty) {
           rollToName[roll] = name;
         }

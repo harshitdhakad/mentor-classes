@@ -781,10 +781,10 @@ class _SyllabusProgressPreview extends ConsumerWidget {
     final user = ref.watch(authProvider);
     if (user?.studentClass == null) return const SizedBox.shrink();
 
-    return StreamBuilder<QuerySnapshot>(
+    return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
           .collection('syllabus')
-          .where('classLevel', isEqualTo: user!.studentClass)
+          .doc('class_${user!.studentClass}')
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -793,7 +793,7 @@ class _SyllabusProgressPreview extends ConsumerWidget {
         if (snapshot.hasError) {
           return const Center(child: Text('Error loading syllabus'));
         }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        if (!snapshot.hasData || !snapshot.data!.exists) {
           return Card(
             elevation: 0,
             shape: RoundedRectangleBorder(

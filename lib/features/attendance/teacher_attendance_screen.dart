@@ -250,7 +250,7 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('users')
-                .where('class', isEqualTo: _classLevel)
+                .where('studentClass', isEqualTo: _classLevel)
                 .where('role', isEqualTo: 'student')
                 .snapshots(),
             builder: (context, snapshot) {
@@ -279,16 +279,16 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
                 final students = snapshot.data!.docs.map((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   // Mandatory fields: Name, RollNo, Class, Password
-                  final name = data['name'] as String? ?? 'Unknown';
-                  final rollNo = data['rollNo'] as String? ?? data['roll'] as String? ?? '';
-                  final studentClass = data['class'] as int? ?? data['classLevel'] as int? ?? 0;
+                  final name = data['displayName'] as String? ?? data['name'] as String? ?? 'Unknown';
+                  final rollNo = data['rollNumber'] as String? ?? data['rollNo'] as String? ?? data['roll'] as String? ?? '';
+                  final studentClass = data['studentClass'] as int? ?? data['class'] as int? ?? data['classLevel'] as int? ?? 0;
                   final password = data['password'] as String? ?? '';
-                  
+
                   // Verify mandatory fields are present
                   if (name.isEmpty || rollNo.isEmpty || studentClass == 0 || password.isEmpty) {
                     debugPrint('Missing mandatory fields for student: name=$name, rollNo=$rollNo, class=$studentClass, password=${password.isNotEmpty ? "***" : ""}');
                   }
-                  
+
                   return StudentListItem(
                     docId: doc.id,
                     roll: rollNo,

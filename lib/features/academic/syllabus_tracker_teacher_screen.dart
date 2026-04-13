@@ -208,10 +208,10 @@ class _SyllabusTrackerTeacherScreenState extends ConsumerState<SyllabusTrackerTe
 
         // Subjects List
         Expanded(
-          child: StreamBuilder<QuerySnapshot>(
+          child: StreamBuilder<DocumentSnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('syllabus')
-                .where('classLevel', isEqualTo: _selectedClass)
+                .doc('class_$_selectedClass')
                 .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -220,7 +220,7 @@ class _SyllabusTrackerTeacherScreenState extends ConsumerState<SyllabusTrackerTe
               if (snapshot.hasError) {
                 return const Center(child: Text('Error loading syllabus'));
               }
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              if (!snapshot.hasData || !snapshot.data!.exists) {
                 return Center(
                   child: Text(
                     'No syllabus data for Class $_selectedClass',
@@ -229,7 +229,7 @@ class _SyllabusTrackerTeacherScreenState extends ConsumerState<SyllabusTrackerTe
                 );
               }
 
-              final doc = snapshot.data!.docs.first;
+              final doc = snapshot.data!;
               final data = doc.data() as Map<String, dynamic>;
               final syllabus = ClassSyllabus.fromFirestore(data, doc.id);
 

@@ -205,8 +205,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                               try {
                                 final studentData = studentDoc.data() as Map<String, dynamic>?;
                                 if (studentData == null) continue;
-                                final rollNumber = studentData['roll']?.toString() ?? '';
-                                final name = studentData['name']?.toString() ?? 'Unknown';
+                                final rollNumber = studentData['rollNumber']?.toString() ?? studentData['rollNo']?.toString() ?? studentData['roll']?.toString() ?? '';
+                                final name = studentData['displayName']?.toString() ?? studentData['name']?.toString() ?? 'Unknown';
 
                                 // Validate mandatory fields
                                 if (rollNumber.isEmpty || name.isEmpty) {

@@ -94,7 +94,7 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('users')
-                  .where('class', isEqualTo: _selectedClass)
+                  .where('studentClass', isEqualTo: _selectedClass)
                   .snapshots(),
               builder: (context, snapshot) {
                 try {
@@ -177,9 +177,9 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
                               final doc = students[index];
                               final data = doc.data() as Map<String, dynamic>;
                               // Mandatory fields: Name, RollNo, Class, Password
-                              final name = data['name'] as String? ?? 'Unknown';
-                              final rollNumber = data['rollNo'] as String? ?? data['rollNumber'] as String? ?? '';
-                              final studentClass = data['class'] as int? ?? data['classLevel'] as int? ?? 0;
+                              final name = data['displayName'] as String? ?? data['name'] as String? ?? 'Unknown';
+                              final rollNumber = data['rollNumber'] as String? ?? data['rollNo'] as String? ?? data['roll'] as String? ?? '';
+                              final studentClass = data['studentClass'] as int? ?? data['class'] as int? ?? data['classLevel'] as int? ?? 0;
                               final password = data['password'] as String? ?? '';
                               
                               // Fees data with defaults
