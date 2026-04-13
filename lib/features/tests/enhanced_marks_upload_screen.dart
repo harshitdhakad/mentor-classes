@@ -35,6 +35,7 @@ class _EnhancedMarksUploadScreenState
   final Map<String, Map<String, Map<String, dynamic>>> _seriesMarksBySubject = {}; // subject -> {roll -> {marks, ng}}
 
   final Map<String, Map<String, dynamic>> _studentMarks = {};
+  final Map<String, TextEditingController> _markControllers = {}; // roll -> controller
   bool _isLoading = false;
 
   @override
@@ -54,6 +55,11 @@ class _EnhancedMarksUploadScreenState
     _subjectController.dispose();
     _topicController.dispose();
     _seriesIdController.dispose();
+    // Dispose mark controllers
+    for (final controller in _markControllers.values) {
+      controller.dispose();
+    }
+    _markControllers.clear();
     super.dispose();
   }
 
@@ -613,9 +619,19 @@ class _EnhancedMarksUploadScreenState
   }
 
   Widget _buildStudentMarkInput(dynamic student) {
-    final markController = TextEditingController(
-      text: _studentMarks[student.rollNumber]?['marks']?.toString() ?? '',
+    // Get or create controller for this student
+    final markController = _markControllers.putIfAbsent(
+      student.rollNumber,
+      () => TextEditingController(
+        text: _studentMarks[student.rollNumber]?['marks']?.toString() ?? '',
+      ),
     );
+
+    // Update controller text if marks changed
+    final currentMarks = _studentMarks[student.rollNumber]?['marks']?.toString() ?? '';
+    if (markController.text != currentMarks) {
+      markController.text = currentMarks;
+    }
 
     final isNg = (_studentMarks[student.rollNumber]?['ng'] as bool?) ?? false;
 
