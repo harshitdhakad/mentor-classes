@@ -1335,7 +1335,7 @@ class ErpRepository {
     final start = startDate ?? academicStart;
     final end = endDate ?? academicEnd;
 
-    final snapshot = await _db
+    final snapshot = await _firestore
         .collection('attendance')
         .where('classLevel', isEqualTo: classLevel)
         .get();
@@ -1407,7 +1407,7 @@ class ErpRepository {
         ? DateTime(month.year + 1, 1, 0)
         : DateTime(month.year, month.month + 1, 0);
 
-    final snapshot = await _db
+    final snapshot = await _firestore
         .collection('attendance')
         .where('classLevel', isEqualTo: classLevel)
         .orderBy('date', descending: false)
@@ -1432,7 +1432,7 @@ class ErpRepository {
 
   /// Get all attendance records for class
   Future<List<AttendanceRecord>> getClassAttendanceRecords(int classLevel) async {
-    final snapshot = await _db
+    final snapshot = await _firestore
         .collection('attendance')
         .where('classLevel', isEqualTo: classLevel)
         .orderBy('date', descending: true)
