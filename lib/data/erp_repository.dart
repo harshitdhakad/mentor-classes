@@ -1497,7 +1497,10 @@ class ErpRepository {
     int classLevel,
   ) {
     return _db.collection('homework').doc(classLevel.toString()).snapshots().asyncMap((classDoc) async {
-      if (!classDoc.exists) return {};
+      if (!classDoc.exists) {
+        debugPrint('❌ Homework document does not exist for class $classLevel');
+        return {};
+      }
 
       try {
         final homeworkMap = <String, HomeWorkAssignment>{};

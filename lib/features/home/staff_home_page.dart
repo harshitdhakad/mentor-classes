@@ -110,11 +110,10 @@ class _StaffHomePageState extends ConsumerState<StaffHomePage> {
             ),
           ),
           const SizedBox(height: 12),
-          StreamBuilder<QuerySnapshot>(
+          StreamBuilder<DocumentSnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('attendance')
-                .where('classLevel', isEqualTo: _selectedClass)
-                .where('date', isEqualTo: DateTime.now().toString().split(' ')[0])
+                .doc('$_selectedClass${DateTime.now().year.toString().padLeft(4, '0')}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}')
                 .snapshots(),
             builder: (context, snapshot) {
               try {
@@ -132,29 +131,16 @@ class _StaffHomePageState extends ConsumerState<StaffHomePage> {
                   );
                 }
                 // Check empty data AFTER error
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Center(
-                      child: Text(
-                        'object-not-found',
-                        style: GoogleFonts.poppins(fontSize: 14),
-                      ),
-                    ),
-                  ),
-                );
-              }
+                if (!snapshot.hasData || !snapshot.data!.exists) {
+                  return const Center(
+                    child: Text('No attendance uploaded yet'),
+                  );
+                }
 
-              final attendanceDoc = snapshot.data!.docs.first;
-              final data = attendanceDoc.data() as Map<String, dynamic>;
-              final presentCount = (data['present'] as List?)?.length ?? 0;
-              final absentCount = (data['absent'] as List?)?.length ?? 0;
+              final data = snapshot.data!.data() as Map<String, dynamic>;
+              final records = data['records'] as Map<String, dynamic>?;
+              final presentCount = records?.values.where((v) => v == true).length ?? 0;
+              final absentCount = records?.values.where((v) => v == false).length ?? 0;
 
               return Card(
                 elevation: 0,

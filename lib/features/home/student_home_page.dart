@@ -104,11 +104,10 @@ class StudentHomePage extends ConsumerWidget {
           
           // Today's Attendance Status
           if (hasClass)
-            StreamBuilder<QuerySnapshot>(
+            StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('attendance')
-                  .where('classLevel', isEqualTo: user.studentClass)
-                  .where('date', isEqualTo: DateTime.now().toString().split(' ')[0])
+                  .doc('${user.studentClass}_${DateTime.now().year.toString().padLeft(4, '0')}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}')
                   .snapshots(),
               builder: (context, snapshot) {
                 try {
@@ -122,13 +121,13 @@ class StudentHomePage extends ConsumerWidget {
                     return const Center(child: Text('Syncing data...'));
                   }
                   // Check empty data AFTER error
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  if (!snapshot.hasData || !snapshot.data!.exists) {
                     return Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: Colors.grey.shade50,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: Colors.grey.shade200),
                       ),
                       child: Row(
                         children: [
@@ -148,8 +147,7 @@ class StudentHomePage extends ConsumerWidget {
                   }
 
                   // Check if current student is marked present or absent
-                  final attendanceDoc = snapshot.data!.docs.first;
-                  final data = attendanceDoc.data() as Map<String, dynamic>;
+                  final data = snapshot.data!.data() as Map<String, dynamic>;
                   final records = data['records'] as Map<String, dynamic>?;
                   final isPresent = records != null && records[user.rollNumber] == true;
 
