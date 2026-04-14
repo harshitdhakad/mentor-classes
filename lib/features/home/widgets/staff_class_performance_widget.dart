@@ -20,7 +20,8 @@ class StaffClassPerformanceWidget extends ConsumerWidget {
       return StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('test_marks')
-            .where('classLevel', isEqualTo: classLevel)
+            .doc(classLevel.toString())
+            .collection('tests')
             .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {

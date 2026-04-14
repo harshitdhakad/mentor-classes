@@ -143,7 +143,8 @@ class _UpdatesListState extends ConsumerState<_UpdatesList> {
   Future<List<Map<String, dynamic>>> _fetchTestUpdates() async {
     final snapshot = await FirebaseFirestore.instance
         .collection('test_marks')
-        .where('classLevel', isEqualTo: widget.classLevel)
+        .doc(widget.classLevel.toString())
+        .collection('tests')
         .orderBy('testDate', descending: true)
         .limit(10)
         .get();

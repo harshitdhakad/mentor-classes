@@ -456,7 +456,8 @@ class _EnhancedMarksUploadScreenState
   Future<void> _showEditMarksDialog() async {
     final snapshot = await FirebaseFirestore.instance
         .collection('test_marks')
-        .where('classLevel', isEqualTo: _selectedClass)
+        .doc(_selectedClass.toString())
+        .collection('tests')
         .orderBy('createdAt', descending: true)
         .limit(20)
         .get();
@@ -500,8 +501,9 @@ class _EnhancedMarksUploadScreenState
   Future<void> _editMarks(Map<String, dynamic> testData) async {
     final snapshot = await FirebaseFirestore.instance
         .collection('test_marks')
+        .doc(testData['classLevel'].toString())
+        .collection('tests')
         .where('testName', isEqualTo: testData['testName'])
-        .where('classLevel', isEqualTo: testData['classLevel'])
         .where('date', isEqualTo: testData['date'])
         .limit(1)
         .get();

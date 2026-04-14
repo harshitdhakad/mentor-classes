@@ -31,6 +31,8 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
   bool _attendanceJustSaved = false;
   bool _isEditMode = false;
   bool _attendanceExists = false;
+  bool _isLoadingStudents = false;
+  bool _studentsLoadTimedOut = false;
 
   @override
   void dispose() {
@@ -253,6 +255,8 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                               _present.clear();
                               _attendanceExists = false;
                               _isEditMode = false;
+                              _isLoadingStudents = false;
+                              _studentsLoadTimedOut = false;
                             });
                           },
                         ),
@@ -272,6 +276,8 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                                 _date = picked;
                                 _attendanceExists = false;
                                 _isEditMode = false;
+                                _isLoadingStudents = false;
+                                _studentsLoadTimedOut = false;
                               });
                             }
                           },
@@ -316,24 +322,77 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                 .snapshots(),
             builder: (context, snapshot) {
               try {
-                // CRITICAL: Check waiting state FIRST
+                // Set loading state and start timeout timer
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  debugPrint('Teacher attendance: Waiting for data');
+                  if (!_isLoadingStudents) {
+                    setState(() => _isLoadingStudents = true);
+                    // 10 second timeout
+                    Future.delayed(const Duration(seconds: 10), () {
+                      if (mounted && _isLoadingStudents) {
+                        setState(() {
+                          _isLoadingStudents = false;
+                          _studentsLoadTimedOut = true;
+                        });
+                      }
+                    });
+                  }
+                  debugPrint('Teacher attendance: Waiting for data - class: $_classLevel');
                   return const Center(child: CircularProgressIndicator());
                 }
+                
+                // Reset loading states when data arrives
+                if (_isLoadingStudents || _studentsLoadTimedOut) {
+                  setState(() {
+                    _isLoadingStudents = false;
+                    _studentsLoadTimedOut = false;
+                  });
+                }
+                
                 // Check error state AFTER waiting
                 if (snapshot.hasError) {
                   debugPrint('Teacher attendance error: ${snapshot.error}');
-                  return const Center(child: Text('Error loading list'));
+                  debugPrint('Error details: ${snapshot.error.toString()}');
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Error loading list: ${snapshot.error}',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(color: Colors.grey.shade700),
+                        ),
+                        const SizedBox(height: 8),
+                        ElevatedButton(
+                          onPressed: () => setState(() {}),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  );
                 }
                 // Check empty data AFTER error
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  debugPrint('Teacher attendance: No documents found in users collection');
+                  debugPrint('Teacher attendance: No documents found in users collection for class $_classLevel');
                   return Center(
-                    child: Text(
-                      'No users found.',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(color: Colors.grey.shade700),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.person_search, size: 48, color: Colors.grey.shade300),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No students found for Class $_classLevel.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(color: Colors.grey.shade700),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Please ensure students are registered in the system.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade500),
+                        ),
+                      ],
                     ),
                   );
                 }

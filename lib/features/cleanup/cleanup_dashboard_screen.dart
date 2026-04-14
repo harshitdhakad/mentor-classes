@@ -143,7 +143,8 @@ class _CleanupDashboardScreenState extends ConsumerState<CleanupDashboardScreen>
                     StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance
                           .collection('test_marks')
-                          .where('classLevel', isEqualTo: _selectedClass)
+                          .doc(_selectedClass.toString())
+                          .collection('tests')
                           .snapshots(),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting) {

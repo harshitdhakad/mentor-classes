@@ -178,7 +178,8 @@ class _DetailedStudentPerformanceScreenState
     return StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('test_marks')
-            .where('classLevel', isEqualTo: classLevel)
+            .doc(classLevel.toString())
+            .collection('tests')
             .orderBy('createdAt', descending: false)
             .snapshots(),
         builder: (context, snapshot) {
@@ -602,7 +603,8 @@ class _DetailedStudentPerformanceScreenState
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('test_marks')
-          .where('classLevel', isEqualTo: classLevel)
+          .doc(classLevel.toString())
+          .collection('tests')
           .where('testKind', isEqualTo: 'series')
           .orderBy('createdAt', descending: true)
           .snapshots(),

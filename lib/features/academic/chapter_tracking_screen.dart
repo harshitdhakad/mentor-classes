@@ -47,6 +47,8 @@ class _ChapterTrackingScreenState
     try {
       await FirebaseFirestore.instance
           .collection('chapters')
+          .doc(_selectedClass.toString())
+          .collection('chapters')
           .add({
         'classLevel': _selectedClass,
         'subject': _selectedSubject,
@@ -91,6 +93,8 @@ class _ChapterTrackingScreenState
     try {
       await FirebaseFirestore.instance
           .collection('chapters')
+          .doc(_selectedClass.toString())
+          .collection('chapters')
           .doc(docId)
           .update({'completed': !currentValue});
       
@@ -125,7 +129,12 @@ class _ChapterTrackingScreenState
     if (user.role.name == 'student') return;
 
     try {
-      await FirebaseFirestore.instance.collection('chapters').doc(docId).delete();
+      await FirebaseFirestore.instance
+          .collection('chapters')
+          .doc(_selectedClass.toString())
+          .collection('chapters')
+          .doc(docId)
+          .delete();
       
       // Trigger global refresh to update all screens immediately
       ref.invalidate(refreshTriggerProvider);
@@ -294,7 +303,8 @@ class _ChapterTrackingScreenState
                 : StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('chapters')
-                  .where('classLevel', isEqualTo: displayClass)
+                  .doc(displayClass.toString())
+                  .collection('chapters')
                   .where('subject', isEqualTo: _selectedSubject)
                   .orderBy('addedAt')
                   .snapshots(),

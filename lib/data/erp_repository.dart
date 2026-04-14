@@ -57,6 +57,12 @@ class ErpRepository {
 
   CollectionReference<Map<String, dynamic>> get _attendance => _db.collection('attendance');
   CollectionReference<Map<String, dynamic>> get _testMarks => _db.collection('test_marks');
+  
+  /// Get class-wise test marks subcollection reference: test_marks/{classLevel}/tests
+  CollectionReference<Map<String, dynamic>> _classTestMarksRef(int classLevel) {
+    return _testMarks.doc(classLevel.toString()).collection('tests');
+  }
+  
   CollectionReference<Map<String, dynamic>> get _homework => _db.collection('homework');
   CollectionReference<Map<String, dynamic>> get _announcements => _db.collection('announcements');
   CollectionReference<Map<String, dynamic>> get _testSeries => _db.collection('test_series');
@@ -349,7 +355,8 @@ class ErpRepository {
     debugPrint('📝 Saving test marks: classLevel=$classLevel, subject=$subject, testName=$testName');
     debugPrint('📝 Marks to save: ${marksOut.length} students, NG: ${ngSet.length}');
 
-    await _testMarks.add({
+    // Save to class-wise subcollection: test_marks/{classLevel}/tests/{testId}
+    await _classTestMarksRef(classLevel).add({
       'classLevel': classLevel,
       'subject': subject.trim(),
       'topic': topic.trim(),
@@ -365,7 +372,7 @@ class ErpRepository {
       'createdAt': FieldValue.serverTimestamp(),
     });
 
-    debugPrint('✅ Test marks saved successfully to Firestore');
+    debugPrint('✅ Test marks saved successfully to Firestore (test_marks/$classLevel)');
 
     sendParentNotification(
       title: 'Marks published — Class $classLevel',
@@ -877,6 +884,46 @@ class ErpRepository {
     return list;
   }
 
+  /// Watch enhanced student list for batch management (real-time updates)
+  Stream<List<EnhancedStudentItem>> watchStudentsByClassEnhanced(int classLevel) {
+    return _users
+        .where('role', isEqualTo: 'student')
+        .where('studentClass', isEqualTo: classLevel)
+        .snapshots()
+        .map((snap) {
+      final list = <EnhancedStudentItem>[];
+      int rowIndex = 0;
+
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final roll = (data['rollNumber'] ?? data['rollNo'] ?? data['roll']).toString();
+        final name = (data['displayName'] ?? data['name'] ?? 'Student').toString();
+
+        if (roll.isNotEmpty) {
+          final totalFees = _parseDouble(data['total_fees'] ?? data['totalFees'] ?? 0);
+          final remainingFees =
+              _parseDouble(data['remaining_fees'] ?? data['remainingFees'] ?? totalFees);
+
+          list.add(EnhancedStudentItem(
+            rowIndex: rowIndex++,
+            rollNumber: roll,
+            name: name,
+            docId: doc.id,
+            classLevel: classLevel,
+            totalFees: totalFees,
+            remainingFees: remainingFees,
+            enrolledDate: (data['enrolledDate'] as Timestamp?)?.toDate(),
+            isActive: true,
+            password: data['password'] as String?,
+          ));
+        }
+      }
+
+      list.sort((a, b) => a.rollNumber.compareTo(b.rollNumber));
+      return list;
+    });
+  }
+
   // ====================== PERFORMANCE ANALYTICS ======================
 
   /// Fetch performance analytics for a specific student
@@ -885,8 +932,7 @@ class ErpRepository {
     required String rollNumber,
     required String studentName,
   }) async {
-    final marksSnap = await _testMarks
-        .where('classLevel', isEqualTo: classLevel)
+    final marksSnap = await _classTestMarksRef(classLevel)
         .orderBy('createdAt', descending: true)
         .get();
 

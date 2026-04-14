@@ -103,10 +103,10 @@ final subjectsForClassProvider = FutureProvider.family<List<String>, int>(
 // ====================== STUDENT & BATCH MANAGEMENT ======================
 
 /// Enhanced student list for batch management
-final studentsByClassEnhancedProvider = FutureProvider.family<List<EnhancedStudentItem>, int>(
+final studentsByClassEnhancedProvider = StreamProvider.family<List<EnhancedStudentItem>, int>(
   (ref, classLevel) {
     final repo = ref.watch(erpRepositoryProvider);
-    return repo.fetchStudentsByClassEnhanced(classLevel);
+    return repo.watchStudentsByClassEnhanced(classLevel);
   },
 );
 

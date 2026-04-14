@@ -140,7 +140,8 @@ class _EnhancedStudentDetailScreenState extends ConsumerState<EnhancedStudentDet
       // Get marks for all students
       final marksSnap = await db
           .collection('test_marks')
-          .where('classLevel', isEqualTo: widget.classLevel)
+          .doc(widget.classLevel.toString())
+          .collection('tests')
           .get();
 
       final marksMap = <String, Map<String, double>>{};
@@ -214,7 +215,8 @@ class _EnhancedStudentDetailScreenState extends ConsumerState<EnhancedStudentDet
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('test_marks')
-          .where('classLevel', isEqualTo: widget.classLevel)
+          .doc(widget.classLevel.toString())
+          .collection('tests')
           .snapshots(),
       builder: (context, marksSnapshot) {
         if (marksSnapshot.connectionState == ConnectionState.waiting) {

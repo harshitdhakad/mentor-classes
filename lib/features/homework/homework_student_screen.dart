@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../models/homework_model.dart';
 import '../../data/erp_providers.dart';
 import '../../models/user_model.dart';
@@ -41,6 +43,181 @@ class _HomeworkStudentScreenState extends ConsumerState<HomeworkStudentScreen> {
         SnackBar(content: Text('Error: $e')),
       );
     }
+  }
+
+  Future<void> _copyHomeworkToClipboard(HomeWorkAssignment homework) async {
+    try {
+      final buffer = StringBuffer();
+      buffer.writeln('═══════════════════════════════════════');
+      buffer.writeln('📚 HOMEWORK DETAILS');
+      buffer.writeln('═══════════════════════════════════════');
+      buffer.writeln('Subject: ${homework.subject}');
+      buffer.writeln('Class: ${homework.classLevel}');
+      buffer.writeln('Date: ${homework.formattedDate}');
+      buffer.writeln('═══════════════════════════════════════');
+      
+      if (homework.textContent.isNotEmpty) {
+        buffer.writeln('📝 TEXT CONTENT:');
+        buffer.writeln(homework.textContent);
+        buffer.writeln('═══════════════════════════════════════');
+      }
+      
+      if (homework.imageUrls.isNotEmpty) {
+        buffer.writeln('🖼️ IMAGES:');
+        for (final url in homework.imageUrls) {
+          buffer.writeln(url);
+        }
+        buffer.writeln('═══════════════════════════════════════');
+      }
+      
+      if (homework.attachments.isNotEmpty) {
+        buffer.writeln('📎 ATTACHMENTS:');
+        for (final attachment in homework.attachments) {
+          buffer.writeln('${attachment.fileName}: ${attachment.url}');
+        }
+        buffer.writeln('═══════════════════════════════════════');
+      }
+      
+      buffer.writeln('📅 Assigned: ${homework.formattedDate}');
+      buffer.writeln('═══════════════════════════════════════');
+
+      await Clipboard.setData(ClipboardData(text: buffer.toString()));
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('✅ Homework copied to clipboard'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚠️ Error copying: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showHomeworkDetailsDialog(HomeWorkAssignment homework) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.assignment, color: Colors.blue),
+            const SizedBox(width: 8),
+            Text(
+              'Homework Details',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Subject: ${homework.subject}',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Class: ${homework.classLevel}',
+                style: GoogleFonts.poppins(color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Date: ${homework.formattedDate}',
+                style: GoogleFonts.poppins(color: Colors.grey.shade600),
+              ),
+              const Divider(height: 24),
+              if (homework.textContent.isNotEmpty) ...[
+                Text(
+                  '📝 Text Content:',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  homework.textContent,
+                  style: GoogleFonts.poppins(),
+                ),
+                const Divider(height: 24),
+              ],
+              if (homework.imageUrls.isNotEmpty) ...[
+                Text(
+                  '🖼️ Images (${homework.imageUrls.length}):',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                ...homework.imageUrls.take(3).map((url) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: CachedNetworkImage(
+                      imageUrl: url,
+                      height: 150,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                      errorWidget: (context, url, error) => const Icon(Icons.error),
+                    ),
+                  ),
+                )).toList(),
+                if (homework.imageUrls.length > 3)
+                  Text('+ ${homework.imageUrls.length - 3} more images', style: GoogleFonts.poppins(color: Colors.grey)),
+                const Divider(height: 24),
+              ],
+              if (homework.attachments.isNotEmpty) ...[
+                Text(
+                  '📎 Attachments (${homework.attachments.length}):',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                ...homework.attachments.map((attachment) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    title: Text(attachment.fileName),
+                    subtitle: Text(attachment.url),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.download),
+                      onPressed: () => _downloadFile(attachment.url, attachment.fileName),
+                    ),
+                  ),
+                )),
+                const Divider(height: 24),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _copyHomeworkToClipboard(homework);
+            },
+            icon: const Icon(Icons.copy),
+            label: const Text('Copy to Clipboard'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -112,32 +289,43 @@ class _HomeworkStudentScreenState extends ConsumerState<HomeworkStudentScreen> {
                                 Card(
                                   child: Padding(
                                     padding: const EdgeInsets.all(16.0),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                    child: Row(
                                       children: [
-                                        Text(
-                                          homework.subject,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleLarge,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'by ${homework.assignedBy}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          homework.formattedDate,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                color: Colors.grey[600],
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                homework.subject,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .titleLarge,
                                               ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                'by ${homework.assignedBy}',
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall,
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                homework.formattedDate,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: Colors.grey[600],
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.copy_all),
+                                          onPressed: () => _showHomeworkDetailsDialog(homework),
+                                          tooltip: 'Copy Homework',
                                         ),
                                       ],
                                     ),

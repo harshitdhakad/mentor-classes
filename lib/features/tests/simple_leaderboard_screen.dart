@@ -105,7 +105,8 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('test_marks')
-          .where('classLevel', isEqualTo: _selectedClass)
+          .doc(_selectedClass.toString())
+          .collection('tests')
           .orderBy('createdAt', descending: true)
           .limit(1)
           .snapshots(),
@@ -196,7 +197,8 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('test_marks')
-          .where('classLevel', isEqualTo: _selectedClass)
+          .doc(_selectedClass.toString())
+          .collection('tests')
           .where('testKind', isEqualTo: 'single')
           .orderBy('createdAt', descending: true)
           .snapshots(),
@@ -288,7 +290,8 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('test_marks')
-          .where('classLevel', isEqualTo: _selectedClass)
+          .doc(_selectedClass.toString())
+          .collection('tests')
           .where('testKind', isEqualTo: 'series')
           .snapshots(),
       builder: (context, snapshot) {
@@ -322,7 +325,8 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
               .collection('test_marks')
-              .where('classLevel', isEqualTo: _selectedClass)
+              .doc(_selectedClass.toString())
+              .collection('tests')
               .where('seriesId', isEqualTo: seriesId)
               .snapshots(),
           builder: (context, seriesTestsSnapshot) {

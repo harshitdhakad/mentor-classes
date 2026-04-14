@@ -61,7 +61,8 @@ class _StudentPerformanceScreenState extends ConsumerState<StudentPerformanceScr
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('test_marks')
-          .where('classLevel', isEqualTo: classLevel)
+          .doc(classLevel.toString())
+          .collection('tests')
           .orderBy('createdAt', descending: false)
           .snapshots(),
       builder: (context, snap) {
