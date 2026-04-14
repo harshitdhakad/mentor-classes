@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -30,6 +31,7 @@ class _StudentDetailScreenState extends ConsumerState<StudentDetailScreen> {
   bool _saving = false;
   double _currentTotalFees = 0;
   double _currentRemainingFees = 0;
+  int _studentClass = 0;
 
   /// Helper to parse dynamic values to double
   static double _parseDouble(dynamic value) {
@@ -64,6 +66,7 @@ class _StudentDetailScreenState extends ConsumerState<StudentDetailScreen> {
         _currentRemainingFees = _parseDouble(data['remaining_fees'] ?? _currentTotalFees);
         _totalFeesCtrl.text = _currentTotalFees > 0 ? _currentTotalFees.toString() : '';
         _paidCtrl.text = _calculatePaidFees().toStringAsFixed(2);
+        _studentClass = data['studentClass'] ?? 0;
       }
     } catch (e) {
       if (mounted) {
@@ -222,6 +225,122 @@ class _StudentDetailScreenState extends ConsumerState<StudentDetailScreen> {
                   ),
                   const SizedBox(height: 20),
 
+                  // Attendance Summary Section
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Attendance Summary (Year)',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.darkGrey,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _studentClass > 0
+                              ? StreamBuilder<QuerySnapshot>(
+                                  stream: FirebaseFirestore.instance
+                                      .collection('attendance')
+                                      .where('classLevel', isEqualTo: _studentClass)
+                                      .orderBy('dateKey', descending: false)
+                                      .snapshots(),
+                                  builder: (context, snapshot) {
+                                    if (snapshot.connectionState == ConnectionState.waiting) {
+                                      return const Center(child: CircularProgressIndicator());
+                                    }
+                                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                                      return const Text('No attendance data available');
+                                    }
+
+                                    int totalDays = 0;
+                                    int presentDays = 0;
+                                    int absentDays = 0;
+                                    int holidays = 0;
+
+                                    for (final doc in snapshot.data!.docs) {
+                                      final data = doc.data() as Map<String, dynamic>;
+                                      final records = data['records'] as Map<String, dynamic>?;
+                                      final isHoliday = data['isHoliday'] as bool? ?? false;
+
+                                      if (isHoliday) {
+                                        holidays++;
+                                      } else {
+                                        totalDays++;
+                                        if (records != null && records[widget.studentRoll] == true) {
+                                          presentDays++;
+                                        } else {
+                                          absentDays++;
+                                        }
+                                      }
+                                    }
+
+                                    final attendancePercentage = totalDays > 0 ? (presentDays / totalDays * 100).toInt() : 0;
+
+                                    return Column(
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: _buildAttendanceStat('Present', presentDays, Colors.green),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: _buildAttendanceStat('Absent', absentDays, Colors.red),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: _buildAttendanceStat('Holidays', holidays, Colors.orange),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: attendancePercentage >= 75
+                                                ? Colors.green.withValues(alpha: 0.1)
+                                                : attendancePercentage >= 50
+                                                    ? Colors.orange.withValues(alpha: 0.1)
+                                                    : Colors.red.withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(
+                                              color: attendancePercentage >= 75
+                                                  ? Colors.green
+                                                  : attendancePercentage >= 50
+                                                      ? Colors.orange
+                                                      : Colors.red,
+                                            ),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              'Attendance: $attendancePercentage%',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.bold,
+                                                color: attendancePercentage >= 75
+                                                    ? Colors.green
+                                                    : attendancePercentage >= 50
+                                                        ? Colors.orange
+                                                        : Colors.red,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                )
+                              : const Text('Loading class data...'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
                   // Fees Section
                   Text(
                     'Fees Management',
@@ -355,6 +474,38 @@ class _StudentDetailScreenState extends ConsumerState<StudentDetailScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildAttendanceStat(String label, int value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value.toString(),
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

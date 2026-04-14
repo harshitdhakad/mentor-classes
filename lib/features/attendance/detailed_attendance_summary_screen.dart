@@ -78,7 +78,7 @@ class _DetailedAttendanceSummaryScreenState
         stream: FirebaseFirestore.instance
             .collection('attendance')
             .where('classLevel', isEqualTo: classLevel)
-            .orderBy('date', descending: false)
+            .orderBy('dateKey', descending: false)
             .snapshots(),
         builder: (context, snapshot) {
           try {
@@ -110,14 +110,14 @@ class _DetailedAttendanceSummaryScreenState
             for (final doc in snapshot.data!.docs) {
               try {
                 final data = doc.data() as Map<String, dynamic>;
-                final presentRolls = (data['presentRolls'] as List?)?.map((e) => e.toString()).toList() ?? [];
+                final records = data['records'] as Map<String, dynamic>?;
                 final isHoliday = data['isHoliday'] as bool? ?? false;
 
                 if (isHoliday) {
                   holidays++;
                 } else {
                   totalDays++;
-                  if (presentRolls.contains(rollNumber)) {
+                  if (records != null && records[rollNumber] == true) {
                     presentDays++;
                   } else {
                     absentDays++;
@@ -224,11 +224,11 @@ class _DetailedAttendanceSummaryScreenState
                   const SizedBox(height: 8),
                   ...snapshot.data!.docs.map((doc) {
                     final data = doc.data() as Map<String, dynamic>;
-                    final date = data['date'] as String? ?? 'Unknown';
-                    final presentRolls = (data['presentRolls'] as List?)?.map((e) => e.toString()).toList() ?? [];
+                    final date = data['dateKey'] as String? ?? data['date'] as String? ?? 'Unknown';
+                    final records = data['records'] as Map<String, dynamic>?;
                     final isHoliday = data['isHoliday'] as bool? ?? false;
-                    final isPresent = presentRolls.contains(rollNumber);
-                    
+                    final isPresent = records != null && records[rollNumber] == true;
+
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
                       elevation: 0,

@@ -6,7 +6,6 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/mentor_footer.dart';
 import '../../models/user_model.dart';
 import '../../main.dart';
-import '../academic/chapter_tracking_screen.dart';
 import '../announcements/announcements_staff_screen.dart';
 import '../attendance/detailed_attendance_summary_screen.dart';
 import '../attendance/teacher_attendance_screen.dart';
@@ -20,12 +19,14 @@ import '../schedule/schedule_admin_screen.dart';
 import '../schedule/student_schedule_screen.dart';
 import '../announcements/updates_center_screen.dart';
 import '../tests/detailed_student_performance_screen.dart';
-import '../tests/enhanced_leaderboard_screen.dart';
+import '../tests/simple_leaderboard_screen.dart';
 import '../tests/enhanced_marks_upload_screen.dart';
-import '../todo/student_todo_screen.dart';
+import '../todo/local_student_todo_screen.dart';
 import '../about/about_screen.dart';
 import '../about/meet_our_faculty_screen.dart';
 import '../student/batch_manager_screen.dart';
+import '../academic/simple_syllabus_tracker_teacher_screen.dart';
+import '../academic/simple_syllabus_tracker_student_screen.dart';
 import '../student/student_profile_screen.dart';
 
 /// Role-aware drawer + body for MENTOR CLASSES ERP.
@@ -88,10 +89,10 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
         TeacherAttendanceScreen(),
         BatchManagerScreen(),
         EnhancedMarksUploadScreen(),
-        EnhancedLeaderboardScreen(),
+        SimpleLeaderboardScreen(),
         ScheduleAdminScreen(),
         HomeworkTeacherScreen(),
-        ChapterTrackingScreen(),
+        SimpleSyllabusTrackerTeacherScreen(),
         AdminFeesPanelScreen(),
         AnnouncementsStaffScreen(),
         MeetOurFacultyScreen(),
@@ -102,12 +103,12 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
         StudentHomePage(),
         StudentProfileScreen(),
         StudentScheduleScreen(),
-        EnhancedLeaderboardScreen(),
+        SimpleLeaderboardScreen(),
         DetailedStudentPerformanceScreen(),
-        StudentTodoScreen(),
+        LocalStudentTodoScreen(),
         DetailedAttendanceSummaryScreen(),
         HomeworkStudentScreen(),
-        ChapterTrackingScreen(),
+        SimpleSyllabusTrackerStudentScreen(),
         UpdatesCenterScreen(),
         MeetOurFacultyScreen(),
         AboutScreen(),

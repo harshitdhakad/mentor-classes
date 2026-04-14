@@ -90,14 +90,30 @@ class _StudentPerformanceScreenState extends ConsumerState<StudentPerformanceScr
         for (final doc in snap.data!.docs) {
           final docData = doc.data() as Map<String, dynamic>;
           final marks = docData['marksByRoll'] as Map<String, dynamic>?;
-          final notGivenRolls = (docData['notGivenRolls'] as List?)?.cast<String>() ?? [];
+          final notGivenRolls = (docData['notGivenRolls'] as List?)?.map((e) => e.toString()).toSet() ?? {};
           
-          if (marks != null && marks.containsKey(roll) && !notGivenRolls.contains(roll)) {
-            final score = (marks[roll] as num?)?.toDouble() ?? 0.0;
-            final maxMarks = (docData['maxMarks'] as num?)?.toDouble() ?? 100.0;
-            final testName = docData['testName']?.toString() ?? 'Test';
-            final subject = docData['subject']?.toString() ?? 'General';
-            data.add((testName, subject, score, maxMarks));
+          if (marks != null) {
+            // Try to find the roll number in marks (could be string or int)
+            bool found = false;
+            double score = 0.0;
+            
+            // Check as string
+            if (marks.containsKey(roll)) {
+              score = (marks[roll] as num?)?.toDouble() ?? 0.0;
+              found = true;
+            }
+            // Check as int
+            else if (marks.containsKey(int.tryParse(roll))) {
+              score = (marks[int.tryParse(roll)!] as num?)?.toDouble() ?? 0.0;
+              found = true;
+            }
+            
+            if (found && !notGivenRolls.contains(roll)) {
+              final maxMarks = (docData['maxMarks'] as num?)?.toDouble() ?? 100.0;
+              final testName = docData['testName']?.toString() ?? 'Test';
+              final subject = docData['subject']?.toString() ?? 'General';
+              data.add((testName, subject, score, maxMarks));
+            }
           }
         }
 

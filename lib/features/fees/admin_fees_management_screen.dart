@@ -211,8 +211,7 @@ class _AdminFeesManagementScreenState
   ) {
     final feesPaidController =
         TextEditingController(text: '${student['fees_paid'] ?? 0}');
-    final totalFeesController =
-        TextEditingController(text: '${student['fees_total'] ?? 0}');
+    final totalFees = (student['fees_total'] ?? 0) as num?;
 
     showDialog(
       context: context,
@@ -224,20 +223,43 @@ class _AdminFeesManagementScreenState
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: totalFeesController,
-              decoration: const InputDecoration(
-                labelText: 'Total Fees',
-                border: OutlineInputBorder(),
+            // Total Fees - Read Only
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
               ),
-              keyboardType: TextInputType.number,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Total Fees:',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    '₹${totalFees ?? 0}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.deepBlue,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            // Fees Paid - Editable
             TextField(
               controller: feesPaidController,
               decoration: const InputDecoration(
                 labelText: 'Fees Paid',
                 border: OutlineInputBorder(),
+                helperText: 'Enter amount paid by student',
               ),
               keyboardType: TextInputType.number,
             ),
@@ -250,16 +272,20 @@ class _AdminFeesManagementScreenState
           ),
           ElevatedButton(
             onPressed: () {
-              final totalFees =
-                  double.tryParse(totalFeesController.text) ?? 0;
               final feesPaid =
                   double.tryParse(feesPaidController.text) ?? 0;
+
+              if (feesPaid < 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Fees paid cannot be negative')),
+                );
+                return;
+              }
 
               FirebaseFirestore.instance
                   .collection('users')
                   .doc(docId)
                   .update({
-                'fees_total': totalFees,
                 'fees_paid': feesPaid,
               }).then((_) {
                 Navigator.pop(dialogContext);

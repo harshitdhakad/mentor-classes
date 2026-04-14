@@ -25,14 +25,15 @@ import 'features/student/batch_manager_screen.dart';
 import 'features/student/student_fees_screen.dart';
 import 'features/student/student_management_screen.dart';
 import 'features/tests/detailed_student_performance_screen.dart';
-import 'features/tests/enhanced_leaderboard_screen.dart';
 import 'features/tests/enhanced_marks_upload_screen.dart';
-import 'features/tests/leaderboard_screen.dart';
+import 'features/tests/simple_leaderboard_screen.dart';
 import 'features/tests/student_performance_screen.dart';
 import 'features/tests/test_hub_screen.dart';
 import 'features/todo/student_todo_screen.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/shell/main_shell_screen.dart';
+import 'features/academic/simple_syllabus_tracker_teacher_screen.dart';
+import 'features/academic/simple_syllabus_tracker_student_screen.dart';
 
 class MentorClassesApp extends StatelessWidget {
   final GlobalKey<NavigatorState>? navigatorKey;
@@ -97,10 +98,12 @@ class MentorClassesApp extends StatelessWidget {
         // Tests & Performance
         '/tests': (context) => const TestHubScreen(),
         '/enhanced-marks-upload': (context) => const EnhancedMarksUploadScreen(),
-        '/leaderboard': (context) => const LeaderboardScreen(),
-        '/enhanced-leaderboard': (context) => const EnhancedLeaderboardScreen(),
+        '/leaderboard': (context) => const SimpleLeaderboardScreen(),
         '/performance': (context) => const StudentPerformanceScreen(),
         '/performance-detailed': (context) => const DetailedStudentPerformanceScreen(),
+        // Syllabus Tracker
+        '/syllabus-teacher': (context) => const SimpleSyllabusTrackerTeacherScreen(),
+        '/syllabus-student': (context) => const SimpleSyllabusTrackerStudentScreen(),
         // Schedule
         '/schedule-admin': (context) => const ScheduleAdminScreen(),
         '/schedule-student': (context) => const StudentScheduleScreen(),

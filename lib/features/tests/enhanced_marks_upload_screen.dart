@@ -705,12 +705,9 @@ class _EnhancedMarksUploadScreenState
               setState(() {
                 final current = _studentMarks[student.rollNumber] ?? {'marks': 0, 'ng': false};
                 _studentMarks[student.rollNumber] = {
-                  'marks': current['marks'] as double? ?? 0,
+                  'marks': current['marks'] as int? ?? 0,
                   'ng': !(current['ng'] as bool? ?? false),
                 };
-                if (!isNg) {
-                  markController.clear();
-                }
               });
             },
             child: Container(
@@ -729,7 +726,7 @@ class _EnhancedMarksUploadScreenState
                   width: 2,
                 ),
                 borderRadius: BorderRadius.circular(8),
-                color: isNg ? null : Colors.grey[100],
+                color: isNg ? Colors.white : Colors.grey[500],
                 boxShadow: isNg
                     ? [
                         BoxShadow(
@@ -744,16 +741,16 @@ class _EnhancedMarksUploadScreenState
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    isNg ? Icons.close_rounded : Icons.check_circle_rounded,
+                    Icons.close_rounded,
                     color: isNg ? Colors.white : Colors.grey[500],
                     size: 20,
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    isNg ? 'NG' : 'Give',
+                    'NG',
                     style: TextStyle(
                       fontSize: 10,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.bold,
                       color: isNg ? Colors.white : Colors.grey[600],
                     ),
                   ),

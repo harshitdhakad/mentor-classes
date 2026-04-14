@@ -29,6 +29,8 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
   final Map<String, bool> _present = {};
   bool _saving = false;
   bool _attendanceJustSaved = false;
+  bool _isEditMode = false;
+  bool _attendanceExists = false;
 
   @override
   void dispose() {
@@ -101,7 +103,7 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
     try {
       // STEP 1: Trigger auto-delete homework cleanup
       await _cleanupOldHomework();
-      
+
       // STEP 2: Save attendance
       await ref.read(erpRepositoryProvider).saveAttendance(
             classLevel: _classLevel,
@@ -111,17 +113,21 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
             presentByRoll: Map<String, bool>.from(_present),
             savedByEmail: user.email!,
           );
-      
+
       // Update current homework date if different
       final currentHomeworkDate = ref.read(currentHomeworkDateProvider);
       if (!DateUtils.isSameDay(currentHomeworkDate, _date)) {
         ref.read(currentHomeworkDateProvider.notifier).setDate(_date);
       }
-      
+
       if (mounted) {
-        setState(() => _attendanceJustSaved = true);
+        setState(() {
+          _attendanceJustSaved = true;
+          _attendanceExists = true;
+          _isEditMode = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Attendance saved. Old homework cleaned up.')),
+          const SnackBar(content: Text('✅ Attendance saved successfully')),
         );
       }
     } catch (e) {
@@ -135,13 +141,28 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
     }
   }
 
+  void _toggleEditMode() {
+    setState(() => _isEditMode = !_isEditMode);
+  }
+
   Future<void> _copyToClipboard() async {
     try {
-      await Clipboard.setData(ClipboardData(text: ''));
+      final presentStudents = _present.entries.where((e) => e.value).map((e) => e.key).toList();
+      final absentStudents = _present.entries.where((e) => !e.value).map((e) => e.key).toList();
+      final dateStr = DateFormat('dd-MM-yyyy').format(_date);
+      final text = '''Attendance Report - Class $_classLevel
+Date: $dateStr
+Present: ${presentStudents.length}
+Absent: ${absentStudents.length}
+
+Present Rolls: ${presentStudents.join(', ')}
+Absent Rolls: ${absentStudents.join(', ')}''';
+
+      await Clipboard.setData(ClipboardData(text: text));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Text copied to clipboard'),
+            content: Text('✅ Attendance copied to clipboard'),
             duration: Duration(seconds: 2),
           ),
         );
@@ -166,7 +187,7 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          padding: const EdgeInsets.all(20),
           child: Card(
             elevation: 0,
             shape: RoundedRectangleBorder(
@@ -178,7 +199,41 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Class & date', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppTheme.deepBlue)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Class & date', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppTheme.deepBlue)),
+                      if (_attendanceExists && !_isEditMode)
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '✓ Attendance Done',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.green.shade800,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            FilledButton.tonal(
+                              onPressed: _toggleEditMode,
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                minimumSize: Size.zero,
+                              ),
+                              child: Text('Edit', style: GoogleFonts.poppins(fontSize: 12)),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -196,6 +251,8 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
                             setState(() {
                               _classLevel = v;
                               _present.clear();
+                              _attendanceExists = false;
+                              _isEditMode = false;
                             });
                           },
                         ),
@@ -211,7 +268,11 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
                               lastDate: DateTime(2035),
                             );
                             if (picked != null) {
-                              setState(() => _date = picked);
+                              setState(() {
+                                _date = picked;
+                                _attendanceExists = false;
+                                _isEditMode = false;
+                              });
                             }
                           },
                           icon: const Icon(Icons.calendar_today, size: 18),
@@ -230,7 +291,7 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
                     ),
                     value: _isHoliday,
                     activeThumbColor: AppTheme.deepBlue,
-                    onChanged: (v) => setState(() => _isHoliday = v),
+                    onChanged: _attendanceExists && !_isEditMode ? null : (v) => setState(() => _isHoliday = v),
                   ),
                   if (_isHoliday)
                     TextField(
@@ -303,11 +364,10 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
                   }
                 }
 
-                return StreamBuilder<QuerySnapshot>(
+                return StreamBuilder<DocumentSnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('attendance')
-                      .where('classLevel', isEqualTo: _classLevel)
-                      .where('date', isEqualTo: DateTime(_date.year, _date.month, _date.day).toString().split(' ')[0])
+                      .doc('$_classLevel-${DateTime(_date.year, _date.month, _date.day).year.toString().padLeft(4, '0')}-${DateTime(_date.year, _date.month, _date.day).month.toString().padLeft(2, '0')}-${DateTime(_date.year, _date.month, _date.day).day.toString().padLeft(2, '0')}')
                       .snapshots(),
                   builder: (context, attendanceSnapshot) {
                     try {
@@ -321,8 +381,9 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
                         return const SizedBox.shrink();
                       }
                       // Check empty data AFTER error
-                      if (attendanceSnapshot.hasData && attendanceSnapshot.data!.docs.isNotEmpty) {
-                        final existing = attendanceSnapshot.data!.docs.first.data() as Map<String, dynamic>;
+                      if (attendanceSnapshot.hasData && attendanceSnapshot.data!.exists) {
+                        final existing = attendanceSnapshot.data!.data() as Map<String, dynamic>;
+                        setState(() => _attendanceExists = true);
                         if (existing['isHoliday'] == true) {
                           _isHoliday = true;
                           _holidayMsg.text = (existing['holidayMessage'] ?? '').toString();
@@ -332,6 +393,8 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
                             _present[s.roll] = r[s.roll] == true;
                           }
                         }
+                      } else {
+                        setState(() => _attendanceExists = false);
                       }
                     } catch (e) {
                       debugPrint('Error loading existing attendance: $e');
@@ -377,7 +440,7 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
                                       value: present,
                                       activeThumbColor: Colors.green.shade700,
                                       inactiveThumbColor: Colors.red.shade300,
-                                      onChanged: (v) => setState(() => _present[s.roll] = v),
+                                      onChanged: _attendanceExists && !_isEditMode ? null : (v) => setState(() => _present[s.roll] = v),
                                     ),
                                   ),
                                 );
