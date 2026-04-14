@@ -312,12 +312,12 @@ Absent Rolls: ${absentStudents.join(', ')}''';
             stream: FirebaseFirestore.instance
                 .collection('users')
                 .where('studentClass', isEqualTo: _classLevel)
-                .where('role', isEqualTo: 'student')
                 .snapshots(),
             builder: (context, snapshot) {
               try {
                 // CRITICAL: Check waiting state FIRST
                 if (snapshot.connectionState == ConnectionState.waiting) {
+                  debugPrint('Teacher attendance: Waiting for data for class $_classLevel');
                   return const Center(child: CircularProgressIndicator());
                 }
                 // Check error state AFTER waiting
@@ -328,16 +328,25 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                 // Check empty data AFTER error AND only if ConnectionState is active
                 if (snapshot.connectionState == ConnectionState.active &&
                     (!snapshot.hasData || snapshot.data!.docs.isEmpty)) {
+                  debugPrint('Teacher attendance: No documents found for class $_classLevel');
                   return Center(
                     child: Text(
-                      'No students found for this class.',
+                      'No students found for Class $_classLevel.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(color: Colors.grey.shade700),
                     ),
                   );
                 }
 
-                final students = snapshot.data!.docs.map((doc) {
+                debugPrint('Teacher attendance: Found ${snapshot.data!.docs.length} documents for class $_classLevel');
+
+                final students = snapshot.data!.docs
+                    .where((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final role = data['role'] as String?;
+                      return role == 'student';
+                    })
+                    .map((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   // Mandatory fields: Name, RollNo, Class, Password
                   final name = data['displayName'] as String? ?? data['name'] as String? ?? 'Unknown';
@@ -356,6 +365,8 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                     name: name,
                   );
                 }).toList();
+
+                debugPrint('Teacher attendance: Filtered to ${students.length} students with role=student');
 
                 // Initialize present map if empty
                 if (_present.isEmpty) {

@@ -107,6 +107,7 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
               try {
                 // CRITICAL: Check waiting state FIRST
                 if (snapshot.connectionState == ConnectionState.waiting) {
+                  debugPrint('Student attendance: Waiting for data for class $c, month $monthStartKey to $monthEndKey');
                   return const Center(child: Text('Loading live updates...'));
                 }
                 // Check error state AFTER waiting
@@ -116,8 +117,11 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
                 }
                 // Check empty data AFTER error
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('No data available for this class.'));
+                  debugPrint('Student attendance: No attendance documents found for class $c in month $monthStartKey to $monthEndKey');
+                  return Center(child: Text('No data available for Class $c this month.'));
                 }
+
+                debugPrint('Student attendance: Found ${snapshot.data!.docs.length} attendance documents for class $c in selected month');
 
                 final docs = snapshot.data!.docs.cast<QueryDocumentSnapshot<Map<String, dynamic>>>();
                 var present = 0;

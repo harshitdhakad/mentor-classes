@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/academic_resource_model.dart';
+import '../models/homework_model.dart';
 import '../models/performance_analytics_model.dart';
 import '../models/student_batch_model.dart';
 import '../models/syllabus_tracker_model.dart';
@@ -236,7 +237,7 @@ final monthAttendanceRecordsProvider =
 
 /// Watch homework for a specific class (subject-based structure)
 /// Returns a Map<String, HomeWorkAssignment> where key is the subject
-final watchHomeworkForClassProvider = StreamProvider.family<Map<String, dynamic>, int>(
+final watchHomeworkForClassProvider = StreamProvider.family<Map<String, HomeWorkAssignment>, int>(
   (ref, classLevel) {
     final repo = ref.watch(erpRepositoryProvider);
     return repo.watchHomeworkForClass(classLevel);

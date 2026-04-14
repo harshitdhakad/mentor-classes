@@ -84,6 +84,7 @@ class _DetailedAttendanceSummaryScreenState
           try {
             // CRITICAL: Check waiting state FIRST
             if (snapshot.connectionState == ConnectionState.waiting) {
+              debugPrint('Student attendance summary: Waiting for data for class $classLevel');
               return const Center(child: Text('Loading live updates...'));
             }
             // Check error state AFTER waiting
@@ -93,13 +94,16 @@ class _DetailedAttendanceSummaryScreenState
             }
             // Check empty data AFTER error
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              debugPrint('Student attendance summary: No attendance documents found for class $classLevel');
               return Center(
                 child: Text(
-                  'No data available for this class.',
+                  'No data available for Class $classLevel.',
                   style: GoogleFonts.poppins(),
                 ),
               );
             }
+
+            debugPrint('Student attendance summary: Found ${snapshot.data!.docs.length} attendance documents for class $classLevel');
 
             // Process attendance data
             int totalDays = 0;

@@ -37,13 +37,14 @@ class MainShellScreen extends ConsumerStatefulWidget {
   ConsumerState<MainShellScreen> createState() => _MainShellScreenState();
 }
 
-class _MainShellScreenState extends ConsumerState<MainShellScreen> {
+class _MainShellScreenState extends ConsumerState<MainShellScreen> with WidgetsBindingObserver {
   int _index = 0;
   bool _isLoadingTimeout = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Add timeout to handle cases where auth state doesn't load
     Future.delayed(const Duration(seconds: 5), () {
       if (mounted && ref.read(authProvider) == null) {
@@ -52,6 +53,41 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
         ref.read(authProvider.notifier).signOut();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Refresh data when app comes back to foreground
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('App resumed - refreshing data');
+      _refreshAllProviders();
+    }
+  }
+
+  void _refreshAllProviders() {
+    // Refresh critical providers when app resumes
+    try {
+      ref.invalidate(authProvider);
+    } catch (e) {
+      debugPrint('Error refreshing providers: $e');
+    }
+  }
+
+  void _refreshProvidersForIndex(int index) {
+    // Refresh specific providers based on which tab is selected
+    try {
+      // Data refresh will happen automatically via StreamBuilder when tab changes
+      debugPrint('Switched to tab index: $index');
+    } catch (e) {
+      debugPrint('Error refreshing providers for index $index: $e');
+    }
   }
 
   static const _staffTitles = [
@@ -275,6 +311,8 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
                     onTap: () {
                       setState(() => _index = i);
                       Navigator.of(context).pop();
+                      // Refresh data when switching tabs
+                      _refreshProvidersForIndex(i);
                     },
                   ),
               ],

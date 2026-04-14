@@ -309,15 +309,103 @@ class _SimpleSyllabusTrackerTeacherScreenState extends ConsumerState<SimpleSylla
     }
   }
 
-  void _addChapter(String subjectName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add Chapter feature coming soon')),
+  Future<void> _addChapter(String subjectName) async {
+    final titleController = TextEditingController();
+    final chapterNumController = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Add Chapter - $subjectName'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: chapterNumController,
+              decoration: const InputDecoration(labelText: 'Chapter Number (optional)'),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: titleController,
+              decoration: const InputDecoration(labelText: 'Chapter Title'),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (titleController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Enter chapter title')),
+                );
+                return;
+              }
+              Navigator.pop(context, true);
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
     );
+
+    if (result == true && titleController.text.trim().isNotEmpty) {
+      try {
+        await ref.read(erpRepositoryProvider).addChapterToSyllabus(
+              classLevel: _selectedClass,
+              subjectName: subjectName,
+              title: titleController.text.trim(),
+              chapterNumber: int.tryParse(chapterNumController.text),
+            );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('✅ Chapter added')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      }
+    }
+    titleController.dispose();
+    chapterNumController.dispose();
   }
 
-  void _toggleChapter(String subjectName, dynamic chapter) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Toggle Chapter feature coming soon')),
-    );
+  Future<void> _toggleChapter(String subjectName, dynamic chapter) async {
+    try {
+      final chapterId = (chapter['chapterId'] as String?) ?? '';
+      if (chapterId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error: Chapter ID not found')),
+        );
+        return;
+      }
+
+      await ref.read(erpRepositoryProvider).toggleChapterCompletion(
+            classLevel: _selectedClass,
+            subjectName: subjectName,
+            chapterId: chapterId,
+            isCompleted: !(chapter['isCompleted'] as bool? ?? false),
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ Chapter status updated')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
   }
 }

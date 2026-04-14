@@ -124,7 +124,7 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
 
         final doc = snapshot.data!.docs.first;
         final data = doc.data() as Map<String, dynamic>;
-        final marksByRoll = data['marksByRoll'] as Map<String, dynamic>?;
+        final marksByRoll = data['marks'] as Map<String, dynamic>?;
         final rankByRoll = data['rankByRoll'] as Map<String, dynamic>?;
         final notGivenRolls = (data['notGivenRolls'] as List<dynamic>?)?.map((e) => e.toString()).toSet() ?? {};
         final maxMarks = (data['maxMarks'] as num?)?.toDouble() ?? 100.0;
@@ -245,7 +245,7 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
 
             for (final doc in snapshot.data!.docs) {
               final data = doc.data() as Map<String, dynamic>;
-              final marksByRoll = data['marksByRoll'] as Map<String, dynamic>?;
+              final marksByRoll = data['marks'] as Map<String, dynamic>?;
               final notGivenRolls = (data['notGivenRolls'] as List<dynamic>?)?.map((e) => e.toString()).toSet() ?? {};
               final maxMarks = (data['maxMarks'] as num?)?.toDouble() ?? 100.0;
 
@@ -370,7 +370,7 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
 
                 for (final doc in seriesTestsSnapshot.data!.docs) {
                   final data = doc.data() as Map<String, dynamic>;
-                  final marksByRoll = data['marksByRoll'] as Map<String, dynamic>?;
+                  final marksByRoll = data['marks'] as Map<String, dynamic>?;
                   final notGivenRolls = (data['notGivenRolls'] as List<dynamic>?)?.map((e) => e.toString()).toSet() ?? {};
                   final maxMarks = (data['maxMarks'] as num?)?.toDouble() ?? 100.0;
 
