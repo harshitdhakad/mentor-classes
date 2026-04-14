@@ -69,9 +69,9 @@ class _StudentFeesScreenState extends ConsumerState<StudentFeesScreen> {
             }
 
           final data = snapshot.data!.data() as Map<String, dynamic>;
-          final totalFees = _parseDouble(data['fees_total'] ?? 0);
-          final paidFees = _parseDouble(data['fees_paid'] ?? 0);
-          final remainingFees = (totalFees - paidFees).clamp(0.0, totalFees);
+          final totalFees = _parseDouble(data['total_fees'] ?? 0);
+          final paidFees = _parseDouble(data['paid_fees'] ?? 0);
+          final remainingFees = _parseDouble(data['remaining_fees'] ?? (totalFees - paidFees));
           final lastUpdated = (data['fees_updated_at'] as dynamic)?.toDate() as DateTime?;
 
           return SingleChildScrollView(

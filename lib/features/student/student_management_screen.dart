@@ -310,10 +310,8 @@ class _StudentManagementScreenState
       final batch = FirebaseFirestore.instance.batch();
 
       for (final studentId in _selectedStudentIds) {
-        // Delete from users collection
+        // Delete from users collection (standardized path)
         batch.delete(FirebaseFirestore.instance.collection('users').doc(studentId));
-        // Delete from students collection
-        batch.delete(FirebaseFirestore.instance.collection('students').doc(studentId));
       }
 
       await batch.commit();

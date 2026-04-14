@@ -17,6 +17,7 @@ class SimpleSyllabusTrackerTeacherScreen extends ConsumerStatefulWidget {
 
 class _SimpleSyllabusTrackerTeacherScreenState extends ConsumerState<SimpleSyllabusTrackerTeacherScreen> {
   int _selectedClass = 5;
+  String? _selectedSubject;
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +45,10 @@ class _SimpleSyllabusTrackerTeacherScreenState extends ConsumerState<SimpleSylla
                       label: Text('Class $classNum'),
                       selected: isSelected,
                       onSelected: (_) {
-                        setState(() => _selectedClass = classNum);
+                        setState(() {
+                          _selectedClass = classNum;
+                          _selectedSubject = null;
+                        });
                       },
                       backgroundColor: Colors.grey.shade100,
                       selectedColor: AppTheme.deepBlue.withValues(alpha: 0.2),
@@ -57,6 +61,60 @@ class _SimpleSyllabusTrackerTeacherScreenState extends ConsumerState<SimpleSylla
                 }),
               ),
             ),
+          ),
+          // Subject Selector (if class has syllabus)
+          StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('syllabus')
+                .doc('class_$_selectedClass')
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData || !snapshot.data!.exists) {
+                return const SizedBox.shrink();
+              }
+
+              final data = snapshot.data!.data() as Map<String, dynamic>?;
+              if (data == null) return const SizedBox.shrink();
+
+              final syllabus = ClassSyllabus.fromFirestore(data, snapshot.data!.id);
+              final subjectsList = syllabus.subjects.values.toList();
+
+              if (subjectsList.isEmpty) {
+                return const SizedBox.shrink();
+              }
+
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: Colors.grey.shade50,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      const Text('Subject: ', style: TextStyle(fontWeight: FontWeight.w500)),
+                      ...subjectsList.map((subject) {
+                        final isSelected = _selectedSubject == subject.subjectName;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: FilterChip(
+                            label: Text(subject.subjectName),
+                            selected: isSelected,
+                            onSelected: (_) {
+                              setState(() => _selectedSubject = subject.subjectName);
+                            },
+                            backgroundColor: Colors.white,
+                            selectedColor: AppTheme.deepBlue.withValues(alpha: 0.2),
+                            labelStyle: TextStyle(
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                              color: isSelected ? AppTheme.deepBlue : Colors.black87,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
           // Syllabus Content
           Expanded(
@@ -130,11 +188,7 @@ class _SimpleSyllabusTrackerTeacherScreenState extends ConsumerState<SimpleSylla
             ),
             const SizedBox(height: 8),
             ElevatedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Add Subject feature coming soon')),
-                );
-              },
+              onPressed: () => _addSubject(),
               icon: const Icon(Icons.add),
               label: const Text('Add Subject'),
             ),
@@ -307,6 +361,66 @@ class _SimpleSyllabusTrackerTeacherScreenState extends ConsumerState<SimpleSylla
         );
       }
     }
+  }
+
+  Future<void> _addSubject() async {
+    final subjectController = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Subject'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: subjectController,
+              decoration: const InputDecoration(labelText: 'Subject Name'),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (subjectController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Enter subject name')),
+                );
+                return;
+              }
+              Navigator.pop(context, true);
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && subjectController.text.trim().isNotEmpty) {
+      try {
+        await ref.read(erpRepositoryProvider).addSubjectToSyllabus(
+              classLevel: _selectedClass,
+              subjectName: subjectController.text.trim(),
+            );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('✅ Subject added')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      }
+    }
+    subjectController.dispose();
   }
 
   Future<void> _addChapter(String subjectName) async {

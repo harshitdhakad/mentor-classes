@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/mentor_footer.dart';
+import '../../data/erp_providers.dart';
 import '../../models/user_model.dart';
 import '../../main.dart';
 import '../announcements/announcements_staff_screen.dart';
@@ -25,8 +26,7 @@ import '../todo/local_student_todo_screen.dart';
 import '../about/about_screen.dart';
 import '../about/meet_our_faculty_screen.dart';
 import '../student/batch_manager_screen.dart';
-import '../academic/simple_syllabus_tracker_teacher_screen.dart';
-import '../academic/simple_syllabus_tracker_student_screen.dart';
+import '../academic/chapter_tracking_screen.dart';
 import '../student/student_profile_screen.dart';
 
 /// Role-aware drawer + body for MENTOR CLASSES ERP.
@@ -83,8 +83,17 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> with WidgetsB
   void _refreshProvidersForIndex(int index) {
     // Refresh specific providers based on which tab is selected
     try {
-      // Data refresh will happen automatically via StreamBuilder when tab changes
-      debugPrint('Switched to tab index: $index');
+      // Trigger global refresh to ensure all StreamBuilder widgets get latest data
+      ref.invalidate(refreshTriggerProvider);
+      
+      // Tab-specific refresh hints
+      final user = ref.read(authProvider);
+      final isStaff = user?.isStaff ?? false;
+      final tabName = isStaff ? _staffTitles[index] : _studentTitles[index];
+      debugPrint('Switched to tab: $tabName (index: $index) - Refreshing data');
+      
+      // Force rebuild of the current tab by triggering state update
+      setState(() {});
     } catch (e) {
       debugPrint('Error refreshing providers for index $index: $e');
     }
@@ -128,7 +137,7 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> with WidgetsB
         SimpleLeaderboardScreen(),
         ScheduleAdminScreen(),
         HomeworkTeacherScreen(),
-        SimpleSyllabusTrackerTeacherScreen(),
+        ChapterTrackingScreen(),
         AdminFeesPanelScreen(),
         AnnouncementsStaffScreen(),
         MeetOurFacultyScreen(),
@@ -144,7 +153,7 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> with WidgetsB
         LocalStudentTodoScreen(),
         DetailedAttendanceSummaryScreen(),
         HomeworkStudentScreen(),
-        SimpleSyllabusTrackerStudentScreen(),
+        ChapterTrackingScreen(),
         UpdatesCenterScreen(),
         MeetOurFacultyScreen(),
         AboutScreen(),

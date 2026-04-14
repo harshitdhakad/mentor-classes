@@ -125,7 +125,7 @@ class EnhancedTestMarks {
     DocumentSnapshot<Map<String, dynamic>> doc,
   ) {
     final data = doc.data() ?? {};
-    final marksByRollMap = data['marksByRoll'] as Map<String, dynamic>?;
+    final marksByRollMap = data['marks'] as Map<String, dynamic>?;
     final percentageByRollMap = data['percentageByRoll'] as Map<String, dynamic>?;
     final ranksByRollMap = data['ranksByRoll'] as Map<String, dynamic>?;
 

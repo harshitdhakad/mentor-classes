@@ -311,13 +311,14 @@ Absent Rolls: ${absentStudents.join(', ')}''';
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('users')
+                .where('role', isEqualTo: 'student')
                 .where('studentClass', isEqualTo: _classLevel)
                 .snapshots(),
             builder: (context, snapshot) {
               try {
                 // CRITICAL: Check waiting state FIRST
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  debugPrint('Teacher attendance: Waiting for data for class $_classLevel');
+                  debugPrint('Teacher attendance: Waiting for data');
                   return const Center(child: CircularProgressIndicator());
                 }
                 // Check error state AFTER waiting
@@ -325,28 +326,22 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                   debugPrint('Teacher attendance error: ${snapshot.error}');
                   return const Center(child: Text('Error loading list'));
                 }
-                // Check empty data AFTER error AND only if ConnectionState is active
-                if (snapshot.connectionState == ConnectionState.active &&
-                    (!snapshot.hasData || snapshot.data!.docs.isEmpty)) {
-                  debugPrint('Teacher attendance: No documents found for class $_classLevel');
+                // Check empty data AFTER error
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  debugPrint('Teacher attendance: No documents found in users collection');
                   return Center(
                     child: Text(
-                      'No students found for Class $_classLevel.',
+                      'No users found.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(color: Colors.grey.shade700),
                     ),
                   );
                 }
 
-                debugPrint('Teacher attendance: Found ${snapshot.data!.docs.length} documents for class $_classLevel');
+                debugPrint('Teacher attendance: Found ${snapshot.data!.docs.length} students for class $_classLevel');
 
-                final students = snapshot.data!.docs
-                    .where((doc) {
-                      final data = doc.data() as Map<String, dynamic>;
-                      final role = data['role'] as String?;
-                      return role == 'student';
-                    })
-                    .map((doc) {
+                // Map documents to student items (already filtered at Firestore level)
+                final students = snapshot.data!.docs.map((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   // Mandatory fields: Name, RollNo, Class, Password
                   final name = data['displayName'] as String? ?? data['name'] as String? ?? 'Unknown';
@@ -366,7 +361,15 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                   );
                 }).toList();
 
-                debugPrint('Teacher attendance: Filtered to ${students.length} students with role=student');
+                if (students.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No students found for Class $_classLevel.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(color: Colors.grey.shade700),
+                    ),
+                  );
+                }
 
                 // Initialize present map if empty
                 if (_present.isEmpty) {

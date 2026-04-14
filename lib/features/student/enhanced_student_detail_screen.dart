@@ -309,7 +309,7 @@ class _EnhancedStudentDetailScreenState extends ConsumerState<EnhancedStudentDet
 
             return StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('students')
+                  .collection('users')
                   .doc(widget.studentDocId)
                   .snapshots(),
               builder: (context, studentSnapshot) {

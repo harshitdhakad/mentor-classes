@@ -220,7 +220,7 @@ class _DetailedStudentPerformanceScreenState
           final data = <(String, String, double, double)>[];
           for (final doc in snapshot.data!.docs) {
             final docData = doc.data() as Map<String, dynamic>;
-            final marks = docData['marksByRoll'] as Map<String, dynamic>?;
+            final marks = docData['marks'] as Map<String, dynamic>?;
             final notGivenRolls = (docData['notGivenRolls'] as List?)?.cast<String>() ?? [];
             
             if (marks != null && marks.containsKey(rollNumber) && !notGivenRolls.contains(rollNumber)) {

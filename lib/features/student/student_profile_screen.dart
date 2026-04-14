@@ -66,7 +66,7 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
 
             return StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('students')
+                  .collection('users')
                   .doc(user.id)
                   .snapshots(),
               builder: (context, feesSnapshot) {

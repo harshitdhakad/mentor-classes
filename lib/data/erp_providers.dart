@@ -245,7 +245,7 @@ final watchHomeworkForClassProvider = StreamProvider.family<Map<String, HomeWork
 );
 
 /// Get homework for a specific class and subject
-final getHomeworkForClassAndSubjectProvider = FutureProvider.family<dynamic?, (int, String)>(
+final getHomeworkForClassAndSubjectProvider = FutureProvider.family<dynamic, (int, String)>(
   (ref, params) {
     final repo = ref.watch(erpRepositoryProvider);
     final (classLevel, subject) = params;

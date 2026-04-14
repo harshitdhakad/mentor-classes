@@ -89,7 +89,7 @@ class _StudentPerformanceScreenState extends ConsumerState<StudentPerformanceScr
         final data = <(String, String, double, double)>[];
         for (final doc in snap.data!.docs) {
           final docData = doc.data() as Map<String, dynamic>;
-          final marks = docData['marksByRoll'] as Map<String, dynamic>?;
+          final marks = docData['marks'] as Map<String, dynamic>?;
           final notGivenRolls = (docData['notGivenRolls'] as List?)?.map((e) => e.toString()).toSet() ?? {};
           
           if (marks != null) {

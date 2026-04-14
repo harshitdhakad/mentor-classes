@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../data/erp_providers.dart';
 import '../../models/user_model.dart';
 import '../auth/auth_service.dart';
 
@@ -43,18 +44,42 @@ class _ChapterTrackingScreenState
     final user = ref.read(authProvider);
     if (user == null) return;
 
-    await FirebaseFirestore.instance
-        .collection('chapters')
-        .add({
-      'classLevel': _selectedClass,
-      'subject': _selectedSubject,
-      'chapterName': _chapterController.text.trim(),
-      'completed': false,
-      'addedBy': user.email ?? 'Unknown',
-      'addedAt': FieldValue.serverTimestamp(),
-    });
+    try {
+      await FirebaseFirestore.instance
+          .collection('chapters')
+          .add({
+        'classLevel': _selectedClass,
+        'subject': _selectedSubject,
+        'chapterName': _chapterController.text.trim(),
+        'completed': false,
+        'addedBy': user.email ?? 'Unknown',
+        'addedAt': FieldValue.serverTimestamp(),
+      });
 
-    _chapterController.clear();
+      _chapterController.clear();
+      
+      // Trigger global refresh to update all screens immediately
+      ref.invalidate(refreshTriggerProvider);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Chapter added successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error adding chapter: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error adding chapter: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _toggleChapter(String docId, bool currentValue) async {
@@ -63,10 +88,34 @@ class _ChapterTrackingScreenState
 
     if (user.role.name == 'student') return;
 
-    await FirebaseFirestore.instance
-        .collection('chapters')
-        .doc(docId)
-        .update({'completed': !currentValue});
+    try {
+      await FirebaseFirestore.instance
+          .collection('chapters')
+          .doc(docId)
+          .update({'completed': !currentValue});
+      
+      // Trigger global refresh to update all screens immediately
+      ref.invalidate(refreshTriggerProvider);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(!currentValue ? 'Chapter marked as completed' : 'Chapter marked as incomplete'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error toggling chapter: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating chapter: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _deleteChapter(String docId) async {
@@ -75,7 +124,31 @@ class _ChapterTrackingScreenState
 
     if (user.role.name == 'student') return;
 
-    await FirebaseFirestore.instance.collection('chapters').doc(docId).delete();
+    try {
+      await FirebaseFirestore.instance.collection('chapters').doc(docId).delete();
+      
+      // Trigger global refresh to update all screens immediately
+      ref.invalidate(refreshTriggerProvider);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Chapter deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error deleting chapter: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting chapter: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override

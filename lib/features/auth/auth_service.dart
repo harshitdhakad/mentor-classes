@@ -25,8 +25,8 @@ class AuthService {
 
   final FirebaseFirestore _firestore;
 
-  CollectionReference<Map<String, dynamic>> get _students =>
-      _firestore.collection('students');
+  CollectionReference<Map<String, dynamic>> get _users =>
+      _firestore.collection('users');
 
   /// Validates [email] + [password] against [AppConfig] for the selected staff [role].
   Future<AppUser> loginStaff({
@@ -99,7 +99,7 @@ class AuthService {
       String field,
       Object value,
     ) async =>
-        _students
+        _users
             .where(field, isEqualTo: value)
             .where('studentClass', isEqualTo: classLevel)
             .limit(1)
@@ -125,7 +125,7 @@ class AuthService {
       if (asInt2.docs.isNotEmpty) return asInt2.docs.first;
     }
 
-    final direct = await _students.doc('${classLevel}_$roll').get();
+    final direct = await _users.doc('${classLevel}_$roll').get();
     if (direct.exists) return direct;
 
     return null;

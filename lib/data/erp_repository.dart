@@ -55,7 +55,6 @@ class ErpRepository {
   static String dateKey(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  CollectionReference<Map<String, dynamic>> get _students => _db.collection('students');
   CollectionReference<Map<String, dynamic>> get _attendance => _db.collection('attendance');
   CollectionReference<Map<String, dynamic>> get _testMarks => _db.collection('test_marks');
   CollectionReference<Map<String, dynamic>> get _homework => _db.collection('homework');
@@ -177,7 +176,7 @@ class ErpRepository {
     required double paidAmount,
   }) async {
     final remainingFees = (totalFees - paidAmount).clamp(0.0, totalFees);
-    await _students.doc(studentDocId).set(
+    await _users.doc(studentDocId).set(
       {
         'total_fees': totalFees,
         'remaining_fees': remainingFees,
@@ -347,6 +346,9 @@ class ErpRepository {
       if (!ngSet.contains(k)) marksOut[k] = v;
     });
 
+    debugPrint('📝 Saving test marks: classLevel=$classLevel, subject=$subject, testName=$testName');
+    debugPrint('📝 Marks to save: ${marksOut.length} students, NG: ${ngSet.length}');
+
     await _testMarks.add({
       'classLevel': classLevel,
       'subject': subject.trim(),
@@ -362,6 +364,8 @@ class ErpRepository {
       'createdBy': savedBy,
       'createdAt': FieldValue.serverTimestamp(),
     });
+
+    debugPrint('✅ Test marks saved successfully to Firestore');
 
     sendParentNotification(
       title: 'Marks published — Class $classLevel',
@@ -414,7 +418,7 @@ class ErpRepository {
       final batch = _db.batch();
       final chunk = studs.skip(i).take(batchSize);
       for (final s in chunk) {
-        batch.update(_students.doc(s.docId), {
+        batch.update(_users.doc(s.docId), {
           'studentClass': fromClass + 1,
           'fees': {
             'sessionCleared': false,
@@ -801,23 +805,6 @@ class ErpRepository {
       'enrolledDate': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
-    // Also save to students collection for backward compatibility
-    await _students.doc(docId).set({
-      'studentClass': classLevel,
-      'rollNumber': rollNumber,
-      'name': name,
-      'Password': password,
-      'mobile_contact': mobileContact,
-      'emergency_contact': emergencyContact,
-      'total_fees': totalFees,
-      'feesCriteria': feesCriteria,
-      'remaining_fees': totalFees,
-      'fees_updated_at': FieldValue.serverTimestamp(),
-      'enrolledDate': FieldValue.serverTimestamp(),
-      'active': true,
-      'createdAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-
     return docId;
   }
 
@@ -829,7 +816,7 @@ class ErpRepository {
     String? mobileContact,
     String? emergencyContact,
   }) async {
-    await _students.doc(studentDocId).update({
+    await _users.doc(studentDocId).update({
       'name': name,
       'rollNumber': rollNumber,
       'mobile_contact': mobileContact,
@@ -838,17 +825,14 @@ class ErpRepository {
     });
   }
 
-  /// Remove/deactivate a student
+  /// Remove/deactivate a student - now deletes the document from Firestore
   Future<void> removeStudent(String studentDocId) async {
-    await _students.doc(studentDocId).update({
-      'active': false,
-      'removedAt': FieldValue.serverTimestamp(),
-    });
+    await _users.doc(studentDocId).delete();
   }
 
   /// Reactivate a student
   Future<void> reactivateStudent(String studentDocId) async {
-    await _students.doc(studentDocId).update({
+    await _users.doc(studentDocId).update({
       'active': true,
       'removedAt': FieldValue.delete(),
     });
@@ -1009,7 +993,7 @@ class ErpRepository {
   /// Mark a student's fees as paid
   Future<void> markStudentFeesPaid(String studentDocId) async {
     try {
-      await _students.doc(studentDocId).update({
+      await _users.doc(studentDocId).update({
         'feesPaid': true,
         'feesPaidAt': FieldValue.serverTimestamp(),
       });
@@ -1056,9 +1040,9 @@ class ErpRepository {
       final syllabusRef = _db.collection('syllabus').doc('class_$classLevel');
       final current = await syllabusRef.get();
       final data = current.data() ?? {};
-      
+
       final subjects = Map<String, dynamic>.from(data['subjects'] as Map? ?? {});
-      
+
       if (!subjects.containsKey(subjectName)) {
         subjects[subjectName] = {
           'subjectId': subjectName.toLowerCase().replaceAll(' ', '_'),
@@ -1070,10 +1054,10 @@ class ErpRepository {
           'createdBy': '',
         };
       }
-      
+
       final subject = Map<String, dynamic>.from(subjects[subjectName] as Map);
       final chapters = List<Map<String, dynamic>>.from(subject['chapters'] as List? ?? []);
-      
+
       chapters.add({
         'title': title,
         'chapterNumber': chapterNumber,
@@ -1081,17 +1065,53 @@ class ErpRepository {
         'createdAt': DateTime.now(),
         'updatedAt': DateTime.now(),
       });
-      
+
       subject['chapters'] = chapters;
       subject['updatedAt'] = DateTime.now();
       subjects[subjectName] = subject;
-      
+
       await syllabusRef.update({
         'subjects': subjects,
         'updatedAt': DateTime.now(),
       });
     } catch (e) {
       debugPrint('Error adding chapter: $e');
+      rethrow;
+    }
+  }
+
+  /// Add a subject to class syllabus
+  Future<void> addSubjectToSyllabus({
+    required int classLevel,
+    required String subjectName,
+  }) async {
+    try {
+      final syllabusRef = _db.collection('syllabus').doc('class_$classLevel');
+      final current = await syllabusRef.get();
+      final data = current.data() ?? {};
+
+      final subjects = Map<String, dynamic>.from(data['subjects'] as Map? ?? {});
+
+      if (subjects.containsKey(subjectName)) {
+        throw Exception('Subject already exists');
+      }
+
+      subjects[subjectName] = {
+        'subjectId': subjectName.toLowerCase().replaceAll(' ', '_'),
+        'subjectName': subjectName,
+        'classLevel': classLevel,
+        'chapters': [],
+        'createdAt': DateTime.now(),
+        'updatedAt': DateTime.now(),
+        'createdBy': '',
+      };
+
+      await syllabusRef.update({
+        'subjects': subjects,
+        'updatedAt': DateTime.now(),
+      });
+    } catch (e) {
+      debugPrint('Error adding subject: $e');
       rethrow;
     }
   }
@@ -1450,6 +1470,7 @@ class ErpRepository {
     required String assignedBy,
   }) async {
     try {
+      debugPrint('📝 Saving homework: classLevel=$classLevel, subject=$subject');
       final classDocRef = _db.collection('homework').doc(classLevel.toString());
       final subjectDocRef = classDocRef.collection(subject).doc('current');
 
@@ -1465,8 +1486,12 @@ class ErpRepository {
         'expiryTime': DateTime.now().add(const Duration(hours: 24)),
       };
 
+      debugPrint('📝 Homework data: textContent length=${textContent.length}, images=${imageUrls.length}, attachments=${attachments.length}');
+
       // This overwrites any existing 'current' document for this class+subject
       await subjectDocRef.set(homeworkData);
+
+      debugPrint('✅ Homework saved successfully to Firestore');
     } catch (e) {
       debugPrint('❌ Error saving homework: $e');
       rethrow;
@@ -1496,11 +1521,14 @@ class ErpRepository {
   Stream<Map<String, HomeWorkAssignment>> watchHomeworkForClass(
     int classLevel,
   ) {
+    debugPrint('📖 Starting homework stream for class $classLevel');
     return _db.collection('homework').doc(classLevel.toString()).snapshots().asyncMap((classDoc) async {
       if (!classDoc.exists) {
         debugPrint('❌ Homework document does not exist for class $classLevel');
         return {};
       }
+
+      debugPrint('✅ Homework document exists for class $classLevel');
 
       try {
         final homeworkMap = <String, HomeWorkAssignment>{};
@@ -1509,11 +1537,15 @@ class ErpRepository {
         for (final subject in subjects) {
           final currentDoc = await classDoc.reference.collection(subject).doc('current').get();
           if (currentDoc.exists) {
+            debugPrint('✅ Found homework for subject: $subject');
             final hw = HomeWorkAssignment.fromMap(subject, currentDoc.data() ?? {});
             homeworkMap[subject] = hw;
+          } else {
+            debugPrint('⚠️ No homework found for subject: $subject');
           }
         }
 
+        debugPrint('📖 Returning ${homeworkMap.length} homework entries for class $classLevel');
         return homeworkMap;
       } catch (e) {
         debugPrint('❌ Error streaming homework: $e');

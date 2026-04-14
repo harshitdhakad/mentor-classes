@@ -52,24 +52,6 @@ class StudentUploadRepository {
           },
           SetOptions(merge: true),
         );
-
-        // Also save to students collection for backward compatibility
-        final studentRef = _db.collection('students').doc(docId);
-        batch.set(
-          studentRef,
-          {
-            'name': row.name,
-            'rollNumber': row.rollNo,
-            'Password': row.password,
-            'studentClass': row.classLevel,
-            'total_fees': row.fees,
-            'feesCriteria': row.feesCriteria,
-            'remaining_fees': row.fees,
-            'mobileNumber': row.mobileNumber.isNotEmpty ? row.mobileNumber : 'N/A',
-            'emergencyContact': row.emergencyContact.isNotEmpty ? row.emergencyContact : 'N/A',
-          },
-          SetOptions(merge: true),
-        );
       }
       await batch.commit();
       written += part.length;

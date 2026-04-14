@@ -509,7 +509,7 @@ class _EnhancedMarksUploadScreenState
     if (snapshot.docs.isEmpty) return;
 
     final doc = snapshot.docs.first;
-    final marksByRoll = doc.data()['marksByRoll'] as Map<String, dynamic>?;
+    final marksByRoll = doc.data()['marks'] as Map<String, dynamic>?;
     final notGivenRolls = (doc.data()['notGivenRolls'] as List<dynamic>?)?.cast<String>() ?? [];
 
     if (!mounted) return;
@@ -601,7 +601,7 @@ class _EnhancedMarksUploadScreenState
       }
 
       await doc.reference.update({
-        'marksByRoll': newMarksByRoll,
+        'marks': newMarksByRoll,
         'notGivenRolls': newNotGivenRolls,
         'updatedAt': DateTime.now(),
       });

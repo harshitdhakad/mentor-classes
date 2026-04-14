@@ -81,6 +81,9 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
             assignedBy: user.email ?? 'Unknown',
           );
 
+      // Trigger global refresh to update all screens immediately
+      ref.invalidate(refreshTriggerProvider);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

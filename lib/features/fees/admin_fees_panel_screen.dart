@@ -2,9 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter/services.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../data/erp_providers.dart';
 import '../auth/auth_service.dart';
 
 /// Admin Fees Panel - View and manage fees for all students
@@ -319,110 +319,130 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
   }
 
   Future<void> _showUpdateFeesDialog(String docId, double currentTotal, double currentRemaining) async {
+    final currentPaid = currentTotal - currentRemaining;
     final totalController = TextEditingController(text: currentTotal.toStringAsFixed(0));
-    final remainingController = TextEditingController(text: currentRemaining.toStringAsFixed(0));
-    String? copiedText;
+    final paidController = TextEditingController(text: currentPaid.toStringAsFixed(0));
+    double remainingFees = currentRemaining;
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Update Fees',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: totalController,
-              decoration: InputDecoration(
-                labelText: 'Total Fees',
-                prefixText: '₹',
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.copy),
-                  onPressed: () async {
-                    await Clipboard.setData(ClipboardData(text: totalController.text));
-                    setState(() => copiedText = totalController.text);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Copied to clipboard'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  },
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(
+            'Update Fees',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Total Fees (Read-only)
+              TextField(
+                controller: totalController,
+                decoration: InputDecoration(
+                  labelText: 'Total Fees',
+                  prefixText: '₹',
+                  border: const OutlineInputBorder(),
+                  filled: true,
+                  fillColor: Colors.grey.shade100,
+                  suffixIcon: const Icon(Icons.lock, size: 20, color: Colors.grey),
+                ),
+                keyboardType: TextInputType.number,
+                enabled: false,
+                style: GoogleFonts.poppins(
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: remainingController,
-              decoration: InputDecoration(
-                labelText: 'Remaining Fees',
-                prefixText: '₹',
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.copy),
-                  onPressed: () async {
-                    await Clipboard.setData(ClipboardData(text: remainingController.text));
-                    setState(() => copiedText = remainingController.text);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Copied to clipboard'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  },
+              const SizedBox(height: 12),
+              // Paid Fees (Editable)
+              TextField(
+                controller: paidController,
+                decoration: InputDecoration(
+                  labelText: 'Paid Fees',
+                  prefixText: '₹',
+                  border: const OutlineInputBorder(),
+                  helperText: 'Enter amount paid by student',
                 ),
+                keyboardType: TextInputType.number,
+                onChanged: (value) {
+                  final paid = double.tryParse(value) ?? 0;
+                  final total = double.tryParse(totalController.text) ?? 0;
+                  setDialogState(() {
+                    remainingFees = total - paid;
+                  });
+                },
               ),
-              keyboardType: TextInputType.number,
-            ),
-            if (copiedText != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'Copied: $copiedText',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: Colors.green,
-                    fontWeight: FontWeight.w500,
+              const SizedBox(height: 12),
+              // Remaining Fees (Auto-calculated, Read-only)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: remainingFees <= 0 ? Colors.green.shade50 : Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: remainingFees <= 0 ? Colors.green.shade300 : Colors.red.shade300,
                   ),
                 ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Remaining Fees',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      '₹${remainingFees.toInt()}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: remainingFees <= 0 ? Colors.green : Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Update'),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Update'),
-          ),
-        ],
       ),
     );
 
     if (result == true) {
-      final newTotal = double.tryParse(totalController.text) ?? currentTotal;
-      final newRemaining = double.tryParse(remainingController.text) ?? currentRemaining;
+      final total = double.tryParse(totalController.text) ?? currentTotal;
+      final paid = double.tryParse(paidController.text) ?? currentPaid;
+      final newRemaining = total - paid;
 
       try {
         await FirebaseFirestore.instance
             .collection('users')
             .doc(docId)
             .update({
-          'total_fees': newTotal,
+          'total_fees': total,
           'remaining_fees': newRemaining,
+          'paid_fees': paid,
           'fees_updated_at': FieldValue.serverTimestamp(),
         });
 
+        // Trigger global refresh to update all screens immediately
+        ref.invalidate(refreshTriggerProvider);
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Fees updated successfully'),
+            SnackBar(
+              content: Text('✅ Fees updated: Paid ₹${paid.toInt()}, Remaining ₹${newRemaining.toInt()}'),
               backgroundColor: Colors.green,
             ),
           );
@@ -441,7 +461,7 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
     }
 
     totalController.dispose();
-    remainingController.dispose();
+    paidController.dispose();
   }
 }
 
