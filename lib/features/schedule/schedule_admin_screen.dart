@@ -57,6 +57,7 @@ class _ScheduleAdminScreenState extends ConsumerState<ScheduleAdminScreen> {
   final Map<String, List<_SlotFields>> _days = {};
   bool _loading = true;
   bool _saving = false;
+  bool _scheduleExists = false;
   int _selectedClass = 9; // Default to class 9
 
   @override
@@ -95,10 +96,13 @@ class _ScheduleAdminScreenState extends ConsumerState<ScheduleAdminScreen> {
           );
       
       if (raw != null && mounted) {
+        // Check if schedule has any data
+        bool hasData = false;
         for (final d in _dayOrder) {
           final key = d.$1;
           final dayData = raw[key];
           if (dayData is List && dayData.isNotEmpty) {
+            hasData = true;
             // Handle dynamic number of slots
             for (var i = 0; i < (i < 2 ? 2 : dayData.length); i++) {
               if (i >= dayData.length) break;
@@ -114,9 +118,13 @@ class _ScheduleAdminScreenState extends ConsumerState<ScheduleAdminScreen> {
             }
           }
         }
+        setState(() => _scheduleExists = hasData);
+      } else {
+        setState(() => _scheduleExists = false);
       }
     } catch (e) {
       debugPrint('❌ Error loading schedule: $e');
+      setState(() => _scheduleExists = false);
       // Still show empty form on error, don't get stuck loading
     } finally {
       if (mounted) {
@@ -133,9 +141,10 @@ class _ScheduleAdminScreenState extends ConsumerState<ScheduleAdminScreen> {
         payload[d.$1] = _days[d.$1]!.map((s) => s.toMap()).toList();
       }
       await ref.read(erpRepositoryProvider).saveWeeklySchedule(_selectedClass, payload);
+      setState(() => _scheduleExists = true);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Weekly schedule saved.')),
+          SnackBar(content: Text(_scheduleExists ? 'Schedule updated successfully' : 'Weekly schedule saved successfully')),
         );
       }
     } catch (e) {
@@ -240,7 +249,10 @@ class _ScheduleAdminScreenState extends ConsumerState<ScheduleAdminScreen> {
                   ),
                   onChanged: (value) {
                     if (value != null) {
-                      setState(() => _selectedClass = value);
+                      setState(() {
+                        _selectedClass = value;
+                        _scheduleExists = false;
+                      });
                       _load();
                     }
                   },
@@ -253,9 +265,30 @@ class _ScheduleAdminScreenState extends ConsumerState<ScheduleAdminScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Weekly schedule',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppTheme.deepBlue, fontSize: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Weekly schedule',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppTheme.deepBlue, fontSize: 16),
+                  ),
+                  if (_scheduleExists)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '✓ Schedule uploaded',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.green.shade800,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 6),
               Text(
@@ -274,7 +307,7 @@ class _ScheduleAdminScreenState extends ConsumerState<ScheduleAdminScreen> {
                   height: 22,
                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                 )
-              : Text('Save all days', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+              : Text(_scheduleExists ? 'Update schedule' : 'Save all days', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
         ),
         const SizedBox(height: 8),
         OutlinedButton.icon(

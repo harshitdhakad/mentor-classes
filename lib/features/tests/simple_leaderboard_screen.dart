@@ -181,7 +181,7 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
               });
             });
 
-            leaderboard.sort((a, b) => (b['rank'] as int).compareTo(a['rank'] as int));
+            leaderboard.sort((a, b) => (a['rank'] as int).compareTo(b['rank'] as int));
 
             return _buildLeaderboardList(leaderboard, testName, subject, maxMarks, isStudent, user?.rollNumber);
           },
@@ -412,85 +412,127 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
     );
   }
 
-  Widget _buildLeaderboardList(List<Map<String, dynamic>> leaderboard, String testName, String subject, double maxMarks, bool isStudent, String? currentUserRoll) {
-    // Find current student's rank
-    int? studentRank;
-    double? studentMark;
-    double? studentPercentage;
-    bool? studentIsNg;
-
+  Widget _buildLeaderboardList(
+    List<Map<String, dynamic>> leaderboard,
+    String testName,
+    String subject,
+    double maxMarks,
+    bool isStudent,
+    String? currentUserRoll,
+  ) {
+    // Find current user's data for highlighting
+    Map<String, dynamic>? currentUserData;
     if (isStudent && currentUserRoll != null) {
-      final studentEntry = leaderboard.firstWhere(
-        (e) => e['roll'] == currentUserRoll,
+      currentUserData = leaderboard.firstWhere(
+        (entry) => entry['roll'] == currentUserRoll,
         orElse: () => {},
       );
-      if (studentEntry.isNotEmpty) {
-        studentRank = studentEntry['rank'] as int;
-        studentMark = studentEntry['mark'] as double;
-        studentPercentage = studentEntry['percentage'] as double;
-        studentIsNg = studentEntry['isNg'] as bool;
-      }
     }
+
+    final studentRank = currentUserData?['rank'] as int?;
+    final studentMark = currentUserData?['mark'] as double?;
+    final studentPercentage = currentUserData?['percentage'] as double?;
+    final studentIsNg = currentUserData?['isNg'] as bool?;
 
     return Column(
       children: [
-        // Student's own rank display (for students)
-        if (isStudent && studentRank != null)
+        // Test Info Header with Gradient
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppTheme.deepBlue, AppTheme.deepBlue.withValues(alpha: 0.8)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(20),
+              bottomRight: Radius.circular(20),
+            ),
+          ),
+          child: Column(
+            children: [
+              Text(
+                testName,
+                style: GoogleFonts.poppins(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subject,
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Max Marks: $maxMarks',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Current User's Rank Card
+        if (currentUserData != null && currentUserData!.isNotEmpty)
           Container(
             margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppTheme.deepBlue.withValues(alpha: 0.1), AppTheme.deepBlue.withValues(alpha: 0.05)],
+                colors: [
+                  AppTheme.deepBlue.withValues(alpha: 0.15),
+                  AppTheme.deepBlue.withValues(alpha: 0.05),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppTheme.deepBlue, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.deepBlue.withValues(alpha: 0.2),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Row(
               children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: studentRank == 1
-                        ? Colors.amber
-                        : studentRank == 2
-                            ? Colors.grey.shade400
-                            : studentRank == 3
-                                ? Colors.brown.shade400
-                                : AppTheme.deepBlue,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '#$studentRank',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
+                _buildRankBadge(studentRank ?? 0, 56),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Your Rank',
+                        'Your Performance',
                         style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
+                          fontSize: 13,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
+                      const SizedBox(height: 4),
                       Text(
-                        studentIsNg == true ? 'NG' : '${studentMark?.toStringAsFixed(1)}/$maxMarks',
+                        studentIsNg == true ? 'Not Given' : '${studentMark?.toStringAsFixed(1)}/$maxMarks',
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.bold,
-                          fontSize: 20,
+                          fontSize: 24,
                           color: studentIsNg == true
                               ? Colors.orange
                               : studentMark! >= maxMarks * 0.6
@@ -502,52 +544,27 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
                   ),
                 ),
                 if (studentPercentage != null && !studentIsNg!)
-                  Text(
-                    '${studentPercentage.toStringAsFixed(1)}%',
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: AppTheme.deepBlue,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: studentPercentage! >= 60 ? Colors.green : Colors.red,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${studentPercentage.toStringAsFixed(1)}%',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
               ],
             ),
           ),
-        Container(
-          padding: const EdgeInsets.all(16),
-          color: AppTheme.deepBlue,
-          child: Column(
-            children: [
-              Text(
-                testName,
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subject,
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.9),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Max Marks: $maxMarks',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: Colors.white.withValues(alpha: 0.8),
-                ),
-              ),
-            ],
-          ),
-        ),
         Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             itemCount: leaderboard.length,
             itemBuilder: (context, index) {
               final entry = leaderboard[index];
@@ -559,44 +576,38 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
               final isNg = entry['isNg'] as bool;
               final isCurrentUser = isStudent && currentUserRoll == roll;
 
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                elevation: isCurrentUser ? 4 : 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: isCurrentUser
-                      ? BorderSide(color: AppTheme.deepBlue, width: 2)
-                      : BorderSide.none,
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: isCurrentUser 
+                      ? AppTheme.deepBlue.withValues(alpha: 0.08) 
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: isCurrentUser
+                      ? Border.all(color: AppTheme.deepBlue, width: 2)
+                      : Border.all(color: Colors.grey.shade200),
+                  boxShadow: isCurrentUser
+                      ? [
+                          BoxShadow(
+                            color: AppTheme.deepBlue.withValues(alpha: 0.15),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : [
+                          BoxShadow(
+                            color: Colors.grey.withValues(alpha: 0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                 ),
-                color: isCurrentUser ? AppTheme.deepBlue.withValues(alpha: 0.05) : Colors.white,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: rank == 1
-                              ? Colors.amber
-                              : rank == 2
-                                  ? Colors.grey.shade400
-                                  : rank == 3
-                                      ? Colors.brown.shade400
-                                      : Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: Text(
-                            '#$rank',
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
+                      _buildRankBadge(rank, 48),
+                      const SizedBox(width: 16),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -604,12 +615,14 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
                             Text(
                               name,
                               style: GoogleFonts.poppins(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                                color: isCurrentUser ? AppTheme.deepBlue : Colors.black87,
                               ),
                             ),
+                            const SizedBox(height: 2),
                             Text(
-                              'Roll: $roll',
+                              'Roll No. $roll',
                               style: GoogleFonts.poppins(
                                 fontSize: 12,
                                 color: Colors.grey.shade600,
@@ -622,10 +635,10 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            isNg ? 'NG' : '${mark.toStringAsFixed(1)}/$maxMarks',
+                            isNg ? 'NG' : '${mark.toStringAsFixed(1)}',
                             style: GoogleFonts.poppins(
                               fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                              fontSize: 18,
                               color: isNg
                                   ? Colors.orange
                                   : mark >= maxMarks * 0.6
@@ -633,14 +646,24 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
                                       : Colors.red,
                             ),
                           ),
-                          if (!isNg)
-                            Text(
-                              '${percentage.toStringAsFixed(1)}%',
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
+                          if (!isNg) ...[
+                            const SizedBox(height: 2),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: percentage >= 60 ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '${percentage.toStringAsFixed(1)}%',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: percentage >= 60 ? Colors.green : Colors.red,
+                                ),
                               ),
                             ),
+                          ],
                         ],
                       ),
                     ],
@@ -651,6 +674,60 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildRankBadge(int rank, double size) {
+    IconData icon;
+    Color color;
+    
+    if (rank == 1) {
+      icon = Icons.emoji_events;
+      color = Colors.amber;
+    } else if (rank == 2) {
+      icon = Icons.military_tech;
+      color = Colors.grey.shade400;
+    } else if (rank == 3) {
+      icon = Icons.workspace_premium;
+      color = Colors.brown.shade400;
+    } else if (rank == 0) {
+      icon = Icons.help_outline;
+      color = Colors.grey.shade300;
+    } else {
+      icon = Icons.numbers;
+      color = AppTheme.deepBlue;
+    }
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color, color.withValues(alpha: 0.8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Center(
+        child: rank <= 3
+            ? Icon(icon, color: Colors.white, size: size * 0.5)
+            : Text(
+                '#$rank',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  fontSize: size * 0.35,
+                  color: Colors.white,
+                ),
+              ),
+      ),
     );
   }
 
@@ -671,63 +748,75 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
 
     return Column(
       children: [
+        // Header with gradient
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppTheme.deepBlue, AppTheme.deepBlue.withValues(alpha: 0.8)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(20),
+              bottomRight: Radius.circular(20),
+            ),
+          ),
+          child: Text(
+            seriesName ?? 'Overall Performance',
+            style: GoogleFonts.poppins(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ),
         // Student's own rank display (for students)
         if (isStudent && studentRank != null)
           Container(
             margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppTheme.deepBlue.withValues(alpha: 0.1), AppTheme.deepBlue.withValues(alpha: 0.05)],
+                colors: [
+                  AppTheme.deepBlue.withValues(alpha: 0.15),
+                  AppTheme.deepBlue.withValues(alpha: 0.05),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppTheme.deepBlue, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.deepBlue.withValues(alpha: 0.2),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Row(
               children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: studentRank == 1
-                        ? Colors.amber
-                        : studentRank == 2
-                            ? Colors.grey.shade400
-                            : studentRank == 3
-                                ? Colors.brown.shade400
-                                : AppTheme.deepBlue,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '#$studentRank',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
+                _buildRankBadge(studentRank, 56),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Your Rank',
+                        'Your Overall Rank',
                         style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
+                          fontSize: 13,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
+                      const SizedBox(height: 4),
                       Text(
                         '${studentAvgPercentage?.toStringAsFixed(1)}%',
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.bold,
-                          fontSize: 20,
+                          fontSize: 24,
                           color: studentAvgPercentage! >= 60
                               ? Colors.green
                               : Colors.red,
@@ -736,81 +825,69 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
                     ],
                   ),
                 ),
-                Text(
-                  '$studentTestCount tests',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: AppTheme.deepBlue,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.deepBlue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$studentTestCount tests',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: AppTheme.deepBlue,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-        if (seriesName != null)
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: AppTheme.deepBlue,
-            child: Text(
-              seriesName,
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
         Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             itemCount: leaderboard.length,
             itemBuilder: (context, index) {
               final entry = leaderboard[index];
-              final rank = index + 1;
               final roll = entry['roll'] as String;
               final name = entry['name'] as String;
               final avgPercentage = entry['avgPercentage'] as double;
               final testCount = entry['testCount'] as int;
               final isCurrentUser = isStudent && currentUserRoll == roll;
+              final rank = index + 1;
 
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                elevation: isCurrentUser ? 4 : 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: isCurrentUser
-                      ? BorderSide(color: AppTheme.deepBlue, width: 2)
-                      : BorderSide.none,
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: isCurrentUser 
+                      ? AppTheme.deepBlue.withValues(alpha: 0.08) 
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: isCurrentUser
+                      ? Border.all(color: AppTheme.deepBlue, width: 2)
+                      : Border.all(color: Colors.grey.shade200),
+                  boxShadow: isCurrentUser
+                      ? [
+                          BoxShadow(
+                            color: AppTheme.deepBlue.withValues(alpha: 0.15),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : [
+                          BoxShadow(
+                            color: Colors.grey.withValues(alpha: 0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                 ),
-                color: isCurrentUser ? AppTheme.deepBlue.withValues(alpha: 0.05) : Colors.white,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: rank == 1
-                              ? Colors.amber
-                              : rank == 2
-                                  ? Colors.grey.shade400
-                                  : rank == 3
-                                      ? Colors.brown.shade400
-                                      : Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: Text(
-                            '#$rank',
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
+                      _buildRankBadge(rank, 48),
+                      const SizedBox(width: 16),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -818,12 +895,14 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
                             Text(
                               name,
                               style: GoogleFonts.poppins(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                                color: isCurrentUser ? AppTheme.deepBlue : Colors.black87,
                               ),
                             ),
+                            const SizedBox(height: 2),
                             Text(
-                              'Roll: $roll',
+                              'Roll No. $roll',
                               style: GoogleFonts.poppins(
                                 fontSize: 12,
                                 color: Colors.grey.shade600,
@@ -839,17 +918,24 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
                             '${avgPercentage.toStringAsFixed(1)}%',
                             style: GoogleFonts.poppins(
                               fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: avgPercentage >= 60
-                                  ? Colors.green
-                                  : Colors.red,
+                              fontSize: 18,
+                              color: avgPercentage >= 60 ? Colors.green : Colors.red,
                             ),
                           ),
-                          Text(
-                            '$testCount tests',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
+                          const SizedBox(height: 2),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.deepBlue.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '$testCount tests',
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.deepBlue,
+                              ),
                             ),
                           ),
                         ],
@@ -864,4 +950,4 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
       ],
     );
   }
-}
+} 

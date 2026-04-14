@@ -45,11 +45,33 @@ class _ChapterTrackingScreenState
     if (user == null) return;
 
     try {
-      await FirebaseFirestore.instance
-          .collection('chapters')
-          .doc(_selectedClass.toString())
-          .collection('chapters')
-          .add({
+      // Ensure the class document exists
+      final classDocRef = FirebaseFirestore.instance
+          .collection('syllabus')
+          .doc(_selectedClass.toString());
+      
+      final classDoc = await classDocRef.get();
+      if (!classDoc.exists) {
+        await classDocRef.set({
+          'classLevel': _selectedClass,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+      
+      // Ensure the subject document exists
+      final subjectDocRef = classDocRef.collection('subjects').doc(_selectedSubject);
+      
+      final subjectDoc = await subjectDocRef.get();
+      if (!subjectDoc.exists) {
+        await subjectDocRef.set({
+          'subjectName': _selectedSubject,
+          'classLevel': _selectedClass,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+      
+      // Add chapter to the chapters subcollection
+      await subjectDocRef.collection('chapters').add({
         'classLevel': _selectedClass,
         'subject': _selectedSubject,
         'chapterName': _chapterController.text.trim(),
@@ -92,8 +114,10 @@ class _ChapterTrackingScreenState
 
     try {
       await FirebaseFirestore.instance
-          .collection('chapters')
+          .collection('syllabus')
           .doc(_selectedClass.toString())
+          .collection('subjects')
+          .doc(_selectedSubject)
           .collection('chapters')
           .doc(docId)
           .update({'completed': !currentValue});
@@ -130,8 +154,10 @@ class _ChapterTrackingScreenState
 
     try {
       await FirebaseFirestore.instance
-          .collection('chapters')
+          .collection('syllabus')
           .doc(_selectedClass.toString())
+          .collection('subjects')
+          .doc(_selectedSubject)
           .collection('chapters')
           .doc(docId)
           .delete();
@@ -302,10 +328,11 @@ class _ChapterTrackingScreenState
                 ? const Center(child: Text('No class selected'))
                 : StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('chapters')
+                  .collection('syllabus')
                   .doc(displayClass.toString())
+                  .collection('subjects')
+                  .doc(_selectedSubject)
                   .collection('chapters')
-                  .where('subject', isEqualTo: _selectedSubject)
                   .orderBy('addedAt')
                   .snapshots(),
               builder: (context, snapshot) {

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../../models/syllabus_tracker_model.dart';
 import '../../models/user_model.dart';
 import '../auth/auth_service.dart';
 
@@ -43,10 +42,11 @@ class SimpleSyllabusTrackerStudentScreen extends ConsumerWidget {
         backgroundColor: AppTheme.deepBlue,
         foregroundColor: Colors.white,
       ),
-      body: StreamBuilder<DocumentSnapshot>(
+      body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('syllabus')
-            .doc('class_$classLevel')
+            .doc(classLevel.toString())
+            .collection('subjects')
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -60,7 +60,7 @@ class SimpleSyllabusTrackerStudentScreen extends ConsumerWidget {
               ),
             );
           }
-          if (!snapshot.hasData || !snapshot.data!.exists) {
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -76,22 +76,15 @@ class SimpleSyllabusTrackerStudentScreen extends ConsumerWidget {
             );
           }
 
-          final data = snapshot.data!.data() as Map<String, dynamic>?;
-          if (data == null) {
-            return const Center(child: Text('No syllabus data available'));
-          }
-          final syllabus = ClassSyllabus.fromFirestore(data, snapshot.data!.id);
-
-          return _buildSyllabusContent(syllabus);
+          final subjects = snapshot.data!.docs;
+          return _buildSyllabusContent(subjects, classLevel);
         },
       ),
     );
   }
 
-  Widget _buildSyllabusContent(ClassSyllabus syllabus) {
-    final subjectsList = syllabus.subjects.values.toList();
-
-    if (subjectsList.isEmpty) {
+  Widget _buildSyllabusContent(List<QueryDocumentSnapshot> subjects, int classLevel) {
+    if (subjects.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -109,128 +102,140 @@ class SimpleSyllabusTrackerStudentScreen extends ConsumerWidget {
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: subjectsList.length,
+      itemCount: subjects.length,
       itemBuilder: (context, index) {
-        final subject = subjectsList[index];
+        final subjectDoc = subjects[index];
+        final subjectName = subjectDoc.id;
         return Card(
           margin: const EdgeInsets.only(bottom: 16),
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Subject Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('syllabus')
+                  .doc(classLevel.toString())
+                  .collection('subjects')
+                  .doc(subjectName)
+                  .collection('chapters')
+                  .orderBy('addedAt')
+                  .snapshots(),
+              builder: (context, chaptersSnapshot) {
+                if (chaptersSnapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                
+                final chapters = chaptersSnapshot.data?.docs ?? [];
+                final completedCount = chapters.where((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return data['completed'] == true;
+                }).length;
+                final totalChapters = chapters.length;
+                final progress = totalChapters > 0 ? (completedCount / totalChapters) * 100 : 0.0;
+                
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      subject.subjectName,
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.deepBlue,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _getProgressColor(subject.progressPercentage).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '${subject.progressPercentage.toStringAsFixed(0)}%',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: _getProgressColor(subject.progressPercentage),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // Progress Bar
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: subject.progressPercentage / 100,
-                    backgroundColor: Colors.grey.shade200,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      _getProgressColor(subject.progressPercentage),
-                    ),
-                    minHeight: 8,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${subject.completedChapters}/${subject.totalChapters} chapters completed',
-                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 16),
-                // Chapters List
-                if (subject.chapters.isEmpty) ...[
-                  const Divider(),
-                  const SizedBox(height: 12),
-                  ...subject.chapters.asMap().entries.map((entry) {
-                    final chapter = entry.value;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        children: [
-                          Icon(
-                            chapter.isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
-                            color: chapter.isCompleted ? Colors.green : Colors.grey.shade400,
-                            size: 24,
+                    // Subject Header
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          subjectName,
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.deepBlue,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  chapter.chapterNumber != null
-                                      ? 'Ch ${chapter.chapterNumber}: ${chapter.title}'
-                                      : chapter.title,
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _getProgressColor(progress).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${progress.toStringAsFixed(0)}%',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: _getProgressColor(progress),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Progress Bar
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: progress / 100,
+                        backgroundColor: Colors.grey.shade200,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          _getProgressColor(progress),
+                        ),
+                        minHeight: 8,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '$completedCount/$totalChapters chapters completed',
+                      style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
+                    // Chapters List
+                    if (chapters.isEmpty) ...[
+                      const Divider(),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No chapters added yet',
+                        style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade500),
+                      ),
+                    ] else ...[
+                      const Divider(),
+                      const SizedBox(height: 12),
+                      ...chapters.map((chapterDoc) {
+                        final chapterData = chapterDoc.data() as Map<String, dynamic>;
+                        final chapterName = chapterData['chapterName'] as String? ?? 'Unknown';
+                        final isCompleted = chapterData['completed'] as bool? ?? false;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
+                                color: isCompleted ? Colors.green : Colors.grey.shade400,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  chapterName,
                                   style: GoogleFonts.poppins(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
-                                    decoration: chapter.isCompleted
+                                    decoration: isCompleted
                                         ? TextDecoration.lineThrough
                                         : null,
-                                    color: chapter.isCompleted
-                                        ? Colors.grey.shade600
+                                    color: isCompleted
+                                        ? Colors.grey.shade500
                                         : Colors.black87,
                                   ),
                                 ),
-                                if (chapter.isCompleted && chapter.completedDate != null)
-                                  Text(
-                                    'Completed: ${_formatDate(chapter.completedDate!)}',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 11,
-                                      color: Colors.green,
-                                    ),
-                                  ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ] else
-                  Center(
-                    child: Text(
-                      'No chapters added yet',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ),
-              ],
+                        );
+                      }),
+                    ],
+                  ],
+                );
+              },
             ),
           ),
         );
@@ -239,12 +244,8 @@ class SimpleSyllabusTrackerStudentScreen extends ConsumerWidget {
   }
 
   Color _getProgressColor(double percentage) {
-    if (percentage >= 75) return Colors.green;
+    if (percentage >= 80) return Colors.green;
     if (percentage >= 50) return Colors.orange;
-    return AppTheme.deepBlue;
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+    return Colors.red;
   }
 }

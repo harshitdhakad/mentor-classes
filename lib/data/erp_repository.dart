@@ -57,13 +57,17 @@ class ErpRepository {
 
   CollectionReference<Map<String, dynamic>> get _attendance => _db.collection('attendance');
   CollectionReference<Map<String, dynamic>> get _testMarks => _db.collection('test_marks');
+  CollectionReference<Map<String, dynamic>> get _homework => _db.collection('homework');
   
   /// Get class-wise test marks subcollection reference: test_marks/{classLevel}/tests
   CollectionReference<Map<String, dynamic>> _classTestMarksRef(int classLevel) {
     return _testMarks.doc(classLevel.toString()).collection('tests');
   }
   
-  CollectionReference<Map<String, dynamic>> get _homework => _db.collection('homework');
+  /// Get class-wise homework subcollection reference: homework/{classLevel}/subjects/{subject}
+  CollectionReference<Map<String, dynamic>> _classHomeworkRef(int classLevel, String subject) {
+    return _homework.doc(classLevel.toString()).collection('subjects').doc(subject).collection('homework');
+  }
   CollectionReference<Map<String, dynamic>> get _announcements => _db.collection('announcements');
   CollectionReference<Map<String, dynamic>> get _testSeries => _db.collection('test_series');
 
@@ -1506,19 +1510,19 @@ class ErpRepository {
   // ====================== HOMEWORK MODULE (NEW STRUCTURE) ======================
 
   /// Save/Update homework for a class and subject (overwrites existing 'current')
-  /// Structure: homework/{classLevel}/{subject}/current
+  /// Save homework for a specific class and subject
   Future<void> saveHomeworkForClassAndSubject({
     required int classLevel,
     required String subject,
     required String textContent,
     required List<String> imageUrls,
-    required List<Map<String, String>> attachments,
+    required List<Map<String, dynamic>> attachments,
     required String assignedBy,
   }) async {
     try {
       debugPrint('📝 Saving homework: classLevel=$classLevel, subject=$subject');
-      final classDocRef = _db.collection('homework').doc(classLevel.toString());
-      final subjectDocRef = classDocRef.collection(subject).doc('current');
+      final homeworkRef = _classHomeworkRef(classLevel, subject);
+      final currentDocRef = homeworkRef.doc('current');
 
       final homeworkData = {
         'classLevel': classLevel,
@@ -1535,7 +1539,7 @@ class ErpRepository {
       debugPrint('📝 Homework data: textContent length=${textContent.length}, images=${imageUrls.length}, attachments=${attachments.length}');
 
       // This overwrites any existing 'current' document for this class+subject
-      await subjectDocRef.set(homeworkData);
+      await currentDocRef.set(homeworkData);
 
       debugPrint('✅ Homework saved successfully to Firestore');
     } catch (e) {
@@ -1550,9 +1554,9 @@ class ErpRepository {
     required String subject,
   }) async {
     try {
-      final classDocRef = _db.collection('homework').doc(classLevel.toString());
-      final subjectDocRef = classDocRef.collection(subject).doc('current');
-      final doc = await subjectDocRef.get();
+      final homeworkRef = _classHomeworkRef(classLevel, subject);
+      final currentDocRef = homeworkRef.doc('current');
+      final doc = await currentDocRef.get();
 
       if (!doc.exists) return null;
 
@@ -1568,7 +1572,7 @@ class ErpRepository {
     int classLevel,
   ) {
     debugPrint('📖 Starting homework stream for class $classLevel');
-    return _db.collection('homework').doc(classLevel.toString()).snapshots().asyncMap((classDoc) async {
+    return _homework.doc(classLevel.toString()).snapshots().asyncMap((classDoc) async {
       if (!classDoc.exists) {
         debugPrint('❌ Homework document does not exist for class $classLevel');
         return {};
@@ -1581,7 +1585,8 @@ class ErpRepository {
         final subjects = ['Maths', 'Science', 'SST', 'English'];
 
         for (final subject in subjects) {
-          final currentDoc = await classDoc.reference.collection(subject).doc('current').get();
+          final homeworkRef = _classHomeworkRef(classLevel, subject);
+          final currentDoc = await homeworkRef.doc('current').get();
           if (currentDoc.exists) {
             debugPrint('✅ Found homework for subject: $subject');
             final hw = HomeWorkAssignment.fromMap(subject, currentDoc.data() ?? {});
@@ -1617,8 +1622,8 @@ class ErpRepository {
     required String subject,
   }) async {
     try {
-      final classDocRef = _db.collection('homework').doc(classLevel.toString());
-      await classDocRef.collection(subject).doc('current').delete();
+      final homeworkRef = _classHomeworkRef(classLevel, subject);
+      await homeworkRef.doc('current').delete();
     } catch (e) {
       debugPrint('❌ Error deleting homework: $e');
       rethrow;

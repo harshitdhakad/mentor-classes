@@ -57,13 +57,17 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
     try {
       // Check-and-Create path initialization
       final db = FirebaseFirestore.instance;
-      final classDocRef = db.collection('homework').doc(_selectedClass.toString());
-      final subjectDocRef = classDocRef.collection(_selectedSubject).doc('current');
+      final homeworkRef = db.collection('homework')
+          .doc(_selectedClass.toString())
+          .collection('subjects')
+          .doc(_selectedSubject)
+          .collection('homework');
+      final currentDocRef = homeworkRef.doc('current');
       
       // Check if path exists, if not create dummy initialization
-      final subjectDoc = await subjectDocRef.get();
+      final subjectDoc = await currentDocRef.get();
       if (!subjectDoc.exists) {
-        await subjectDocRef.set({
+        await currentDocRef.set({
           'initialized': true,
           'classLevel': _selectedClass,
           'subject': _selectedSubject,
