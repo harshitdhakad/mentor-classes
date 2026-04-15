@@ -21,7 +21,7 @@ class TeacherAttendanceScreen extends ConsumerStatefulWidget {
 }
 
 class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScreen> {
-  int _classLevel = 8;
+  int _classLevel = 5;
   DateTime _date = DateTime.now();
   bool _isHoliday = false;
   final _holidayMsg = TextEditingController();
@@ -413,14 +413,13 @@ Absent Rolls: ${absentStudents.join(', ')}''';
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('users')
-                .where('role', isEqualTo: 'student')
                 .snapshots(),
             builder: (context, snapshot) {
               try {
                 // Check error state
                 if (snapshot.hasError) {
-                  debugPrint('Teacher attendance error: ${snapshot.error}');
-                  debugPrint('Error details: ${snapshot.error.toString()}');
+                  debugPrint('❌ Teacher attendance error: ${snapshot.error}');
+                  debugPrint('❌ Error details: ${snapshot.error.toString()}');
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -443,7 +442,7 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                 }
                 // Check empty data AFTER error
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  debugPrint('Teacher attendance: No documents found in users collection');
+                  debugPrint('⚠️ Teacher attendance: No documents found in users collection');
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -451,13 +450,13 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                         Icon(Icons.person_search, size: 48, color: Colors.grey.shade300),
                         const SizedBox(height: 16),
                         Text(
-                          'No students found.',
+                          'No users found.',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(color: Colors.grey.shade700),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Please ensure students are registered in the system.',
+                          'Please ensure users are registered in the system.',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade500),
                         ),
@@ -466,9 +465,9 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                   );
                 }
 
-                debugPrint('Teacher attendance: Found ${snapshot.data!.docs.length} total students');
+                debugPrint('📊 Teacher attendance: Found ${snapshot.data!.docs.length} total users in collection');
 
-                // Map documents to student items and filter by class level
+                // Map documents to student items and filter by role and class level
                 final students = snapshot.data!.docs.map((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   // Mandatory fields: Name, RollNo, Class, Password
@@ -476,10 +475,14 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                   final rollNo = data['rollNumber'] as String? ?? data['rollNo'] as String? ?? data['roll'] as String? ?? '';
                   final studentClass = data['studentClass'] as int? ?? data['class'] as int? ?? data['classLevel'] as int? ?? 0;
                   final password = data['password'] as String? ?? '';
+                  final role = data['role'] as String? ?? 'unknown';
+
+                  debugPrint('👤 User: name=$name, roll=$rollNo, class=$studentClass, role=$role, password=${password.isNotEmpty ? "***" : "empty"}');
+                  debugPrint('📋 Raw data keys: ${data.keys.join(", ")}');
 
                   // Verify mandatory fields are present
                   if (name.isEmpty || rollNo.isEmpty || studentClass == 0 || password.isEmpty) {
-                    debugPrint('Missing mandatory fields for student: name=$name, rollNo=$rollNo, class=$studentClass, password=${password.isNotEmpty ? "***" : ""}');
+                    debugPrint('⚠️ Missing mandatory fields for user: name=$name, rollNo=$rollNo, class=$studentClass, password=${password.isNotEmpty ? "***" : ""}');
                   }
 
                   return StudentListItem(
@@ -490,10 +493,19 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                   );
                 }).toList();
 
-                // Filter students by selected class level
+                debugPrint('📊 Total users mapped: ${students.length}');
+                debugPrint('🎯 Selected class level: $_classLevel');
+
+                // Filter students by role and selected class level
                 final filteredStudents = students.where((s) => s.classLevel == _classLevel).toList();
 
-                debugPrint('Teacher attendance: Filtered to ${filteredStudents.length} students for class $_classLevel');
+                debugPrint('✅ Filtered to ${filteredStudents.length} users for class $_classLevel');
+
+                // Show all available classes if no students found
+                if (filteredStudents.isEmpty && students.isNotEmpty) {
+                  final availableClasses = students.map((s) => s.classLevel).toSet().toList()..sort();
+                  debugPrint('📚 Available classes in database: $availableClasses');
+                }
 
                 if (filteredStudents.isEmpty) {
                   return Center(
@@ -537,7 +549,7 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                           _holidayMsg.text = (existing['holidayMessage'] ?? '').toString();
                         } else if (existing['records'] is Map) {
                           final r = Map<String, dynamic>.from(existing['records'] as Map);
-                          for (final s in students) {
+                          for (final s in filteredStudents) {
                             _present[s.roll] = r[s.roll] == true;
                           }
                         }

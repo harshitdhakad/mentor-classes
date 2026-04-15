@@ -271,11 +271,15 @@ class _ChapterTrackingScreenState
                               contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                               isDense: true,
                             ),
-                            style: GoogleFonts.poppins(fontSize: 13),
+                            style: GoogleFonts.poppins(fontSize: 13, color: Colors.black),
+                            dropdownColor: Colors.white,
                             items: _subjects.map((subject) {
                               return DropdownMenuItem(
                                 value: subject,
-                                child: Text(subject, style: GoogleFonts.poppins(fontSize: 13)),
+                                child: Text(
+                                  subject,
+                                  style: GoogleFonts.poppins(fontSize: 13, color: Colors.black),
+                                ),
                               );
                             }).toList(),
                             onChanged: (v) => setState(() => _selectedSubject = v ?? 'Civics'),

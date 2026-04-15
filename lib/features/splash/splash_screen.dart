@@ -20,13 +20,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   bool _navStarted = false; // Prevent duplicate navigation
-  String _loadingText = 'Initialization data syncing...';
+  String _loadingText = 'Initializing...';
+  int _retryCount = 0;
+  static const int _maxRetries = 2;
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(seconds: 2),
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -34,8 +36,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     );
     _animationController.forward();
 
-    // Check auth after animation
-    Future.delayed(const Duration(seconds: 3), _checkAuth);
+    // Check auth immediately after animation
+    Future.delayed(const Duration(milliseconds: 1000), _checkAuth);
   }
 
   @override
@@ -88,14 +90,28 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     } catch (e) {
       debugPrint('SplashScreen: Error during auth check: $e');
       if (mounted) {
-        setState(() => _loadingText = 'Error during initialization. Retrying...');
-        // Retry after a delay
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) {
-            _navStarted = false;
-            _checkAuth();
-          }
-        });
+        if (_retryCount < _maxRetries) {
+          _retryCount++;
+          setState(() => _loadingText = 'Error during initialization. Retrying... ($_retryCount/$_maxRetries)');
+          // Retry after a delay
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted) {
+              _navStarted = false;
+              _checkAuth();
+            }
+          });
+        } else {
+          // Max retries reached, navigate to login screen
+          debugPrint('SplashScreen: Max retries reached, navigating to login');
+          setState(() => _loadingText = 'Redirecting to login...');
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              Navigator.of(context).pushReplacement(
+                CustomPageTransitions.slideFromLeft(const LoginScreen()),
+              );
+            }
+          });
+        }
       }
     }
   }
