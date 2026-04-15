@@ -148,6 +148,36 @@ class StudentHomePage extends ConsumerWidget {
 
                   // Check if current student is marked present or absent
                   final data = snapshot.data!.data() as Map<String, dynamic>;
+                  final isHoliday = data['isHoliday'] == true;
+                  final holidayMessage = data['holidayMessage'] as String?;
+
+                  if (isHoliday) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.warningOrange.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.warningOrange),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.celebration, color: AppTheme.warningOrange),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Today is Holiday${holidayMessage != null ? ': $holidayMessage' : ''}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.warningOrange,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
                   final records = data['records'] as Map<String, dynamic>?;
                   final isPresent = records != null && records[user.rollNumber] == true;
 

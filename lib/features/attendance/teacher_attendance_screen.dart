@@ -21,15 +21,13 @@ class TeacherAttendanceScreen extends ConsumerStatefulWidget {
 }
 
 class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScreen> {
-  int _classLevel = 5;
+  int _classLevel = 8;
   DateTime _date = DateTime.now();
   bool _isHoliday = false;
   final _holidayMsg = TextEditingController();
   final Map<String, bool> _present = {};
   bool _saving = false;
   bool _attendanceJustSaved = false;
-  bool _isEditMode = false;
-  bool _attendanceExists = false;
 
   @override
   void dispose() {
@@ -53,11 +51,7 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
           );
 
       if (mounted) {
-        setState(() {
-          _attendanceJustSaved = true;
-          _attendanceExists = true;
-          _isEditMode = false;
-        });
+        setState(() => _attendanceJustSaved = true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('✅ Attendance saved successfully')),
         );
@@ -73,28 +67,13 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
     }
   }
 
-  void _toggleEditMode() {
-    setState(() => _isEditMode = !_isEditMode);
-  }
-
   Future<void> _copyToClipboard() async {
     try {
-      final presentStudents = _present.entries.where((e) => e.value).map((e) => e.key).toList();
-      final absentStudents = _present.entries.where((e) => !e.value).map((e) => e.key).toList();
-      final dateStr = DateFormat('dd-MM-yyyy').format(_date);
-      final text = '''Attendance Report - Class $_classLevel
-Date: $dateStr
-Present: ${presentStudents.length}
-Absent: ${absentStudents.length}
-
-Present Rolls: ${presentStudents.join(', ')}
-Absent Rolls: ${absentStudents.join(', ')}''';
-
-      await Clipboard.setData(ClipboardData(text: text));
+      await Clipboard.setData(ClipboardData(text: ''));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Attendance copied to clipboard'),
+            content: Text('✅ Text copied to clipboard'),
             duration: Duration(seconds: 2),
           ),
         );
@@ -119,7 +98,7 @@ Absent Rolls: ${absentStudents.join(', ')}''';
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
           child: Card(
             elevation: 0,
             shape: RoundedRectangleBorder(
@@ -131,41 +110,7 @@ Absent Rolls: ${absentStudents.join(', ')}''';
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Class & date', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppTheme.deepBlue)),
-                      if (_attendanceExists && !_isEditMode)
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade100,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                '✓ Attendance Done',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.green.shade800,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            FilledButton.tonal(
-                              onPressed: _toggleEditMode,
-                              style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                minimumSize: Size.zero,
-                              ),
-                              child: Text('Edit', style: GoogleFonts.poppins(fontSize: 12)),
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
+                  Text('Class & date', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppTheme.deepBlue)),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -183,11 +128,6 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                             setState(() {
                               _classLevel = v;
                               _present.clear();
-                              _isHoliday = false;
-                              _holidayMsg.clear();
-                              _attendanceExists = false;
-                              _isEditMode = false;
-                              _attendanceJustSaved = false;
                             });
                           },
                         ),
@@ -203,11 +143,7 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                               lastDate: DateTime(2035),
                             );
                             if (picked != null) {
-                              setState(() {
-                                _date = picked;
-                                _attendanceExists = false;
-                                _isEditMode = false;
-                              });
+                              setState(() => _date = picked);
                             }
                           },
                           icon: const Icon(Icons.calendar_today, size: 18),
@@ -226,7 +162,7 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                     ),
                     value: _isHoliday,
                     activeThumbColor: AppTheme.deepBlue,
-                    onChanged: _attendanceExists && !_isEditMode ? null : (v) => setState(() => _isHoliday = v),
+                    onChanged: (v) => setState(() => _isHoliday = v),
                   ),
                   if (_isHoliday)
                     TextField(
@@ -243,153 +179,152 @@ Absent Rolls: ${absentStudents.join(', ')}''';
           ),
         ),
         Expanded(
-          child: ref.watch(studentsByClassEnhancedProvider(_classLevel)).when(
-            data: (students) {
-              debugPrint('📊 Teacher attendance: Found ${students.length} students for class $_classLevel');
-
-              if (students.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.person_search, size: 48, color: Colors.grey.shade300),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No students found for Class $_classLevel.',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.poppins(color: Colors.grey.shade700),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Please ensure students are registered in the system.',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade500),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              // Initialize present map if empty
-              if (_present.isEmpty) {
-                for (final s in students) {
-                  _present[s.rollNumber.toString()] = true;
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .where('studentClass', isEqualTo: _classLevel)
+                .where('role', isEqualTo: 'student')
+                .snapshots(),
+            builder: (context, snapshot) {
+              try {
+                // CRITICAL: Check waiting state FIRST
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
                 }
-              }
-
-              return StreamBuilder<DocumentSnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('attendance')
-                    .doc('$_classLevel-${_date.year.toString().padLeft(4, '0')}-${_date.month.toString().padLeft(2, '0')}-${_date.day.toString().padLeft(2, '0')}')
-                    .snapshots(),
-                builder: (context, attendanceSnapshot) {
-                  try {
-                    // CRITICAL: Check waiting state FIRST
-                    if (attendanceSnapshot.connectionState == ConnectionState.waiting) {
-                      return const SizedBox.shrink();
-                    }
-                    // Check error state AFTER waiting
-                    if (attendanceSnapshot.hasError) {
-                      debugPrint('Attendance records error: ${attendanceSnapshot.error}');
-                      return const SizedBox.shrink();
-                    }
-                    // Check empty data AFTER error
-                    if (attendanceSnapshot.hasData && attendanceSnapshot.data!.exists) {
-                      final existing = attendanceSnapshot.data!.data() as Map<String, dynamic>;
-                      setState(() => _attendanceExists = true);
-                      if (existing['isHoliday'] == true) {
-                        _isHoliday = true;
-                        _holidayMsg.text = (existing['holidayMessage'] ?? '').toString();
-                      } else if (existing['records'] is Map) {
-                        final r = Map<String, dynamic>.from(existing['records'] as Map);
-                        for (final s in students) {
-                          _present[s.rollNumber.toString()] = r[s.rollNumber.toString()] == true;
-                        }
-                      }
-                    } else {
-                      setState(() => _attendanceExists = false);
-                    }
-                  } catch (e) {
-                    debugPrint('Error loading existing attendance: $e');
-                  }
-
-                  return _isHoliday
-                      ? Center(
-                          child: Text(
-                            'Holiday mode — save to notify parents & post notice.',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.poppins(color: Colors.grey.shade700),
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                          itemCount: students.length,
-                          itemBuilder: (context, i) {
-                            try {
-                              final s = students[i];
-                              final present = _present[s.rollNumber.toString()] ?? true;
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  side: BorderSide(color: Colors.grey.shade200),
-                                ),
-                                child: InkWell(
-                                  onTap: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (context) => StudentDetailScreen(
-                                          studentDocId: s.docId,
-                                          studentName: s.name,
-                                          studentRoll: s.rollNumber.toString(),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  child: SwitchListTile(
-                                    title: Text(s.name, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-                                    subtitle: Text('Roll ${s.rollNumber}', style: GoogleFonts.poppins(fontSize: 13)),
-                                    value: present,
-                                    activeThumbColor: Colors.green.shade700,
-                                    inactiveThumbColor: Colors.red.shade300,
-                                    onChanged: _attendanceExists && !_isEditMode ? null : (v) => setState(() => _present[s.rollNumber.toString()] = v),
-                                  ),
-                                ),
-                              );
-                            } catch (e) {
-                              debugPrint('Error rendering student item: $e');
-                              return const SizedBox.shrink();
-                            }
-                          },
-                        );
-                },
-              );
-            },
-            loading: () => const Center(
-              child: CircularProgressIndicator(),
-            ),
-            error: (error, stackTrace) {
-              debugPrint('❌ Teacher attendance error: $error');
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Error loading list: $error',
+                // Check error state AFTER waiting
+                if (snapshot.hasError) {
+                  debugPrint('Teacher attendance error: ${snapshot.error}');
+                  return const Center(child: Text('Error loading list'));
+                }
+                // Check empty data AFTER error AND only if ConnectionState is active
+                if (snapshot.connectionState == ConnectionState.active &&
+                    (!snapshot.hasData || snapshot.data!.docs.isEmpty)) {
+                  return Center(
+                    child: Text(
+                      'No students found for this class.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(color: Colors.grey.shade700),
                     ),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () => setState(() {}),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              );
+                  );
+                }
+
+                final students = snapshot.data!.docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  // Mandatory fields: Name, RollNo, Class, Password
+                  final name = data['displayName'] as String? ?? data['name'] as String? ?? 'Unknown';
+                  final rollNo = data['rollNumber'] as String? ?? data['rollNo'] as String? ?? data['roll'] as String? ?? '';
+                  final studentClass = data['studentClass'] as int? ?? data['class'] as int? ?? data['classLevel'] as int? ?? 0;
+                  final password = data['password'] as String? ?? '';
+
+                  // Verify mandatory fields are present
+                  if (name.isEmpty || rollNo.isEmpty || studentClass == 0 || password.isEmpty) {
+                    debugPrint('Missing mandatory fields for student: name=$name, rollNo=$rollNo, class=$studentClass, password=${password.isNotEmpty ? "***" : ""}');
+                  }
+
+                  return StudentListItem(
+                    docId: doc.id,
+                    roll: rollNo,
+                    name: name,
+                  );
+                }).toList();
+
+                // Initialize present map if empty
+                if (_present.isEmpty) {
+                  for (final s in students) {
+                    _present[s.roll] = true;
+                  }
+                }
+
+                return StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('attendance')
+                      .where('classLevel', isEqualTo: _classLevel)
+                      .where('date', isEqualTo: DateTime(_date.year, _date.month, _date.day).toString().split(' ')[0])
+                      .snapshots(),
+                  builder: (context, attendanceSnapshot) {
+                    try {
+                      // CRITICAL: Check waiting state FIRST
+                      if (attendanceSnapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox.shrink();
+                      }
+                      // Check error state AFTER waiting
+                      if (attendanceSnapshot.hasError) {
+                        debugPrint('Attendance records error: ${attendanceSnapshot.error}');
+                        return const SizedBox.shrink();
+                      }
+                      // Check empty data AFTER error
+                      if (attendanceSnapshot.hasData && attendanceSnapshot.data!.docs.isNotEmpty) {
+                        final existing = attendanceSnapshot.data!.docs.first.data() as Map<String, dynamic>;
+                        if (existing['isHoliday'] == true) {
+                          _isHoliday = true;
+                          _holidayMsg.text = (existing['holidayMessage'] ?? '').toString();
+                        } else if (existing['records'] is Map) {
+                          final r = Map<String, dynamic>.from(existing['records'] as Map);
+                          for (final s in students) {
+                            _present[s.roll] = r[s.roll] == true;
+                          }
+                        }
+                      }
+                    } catch (e) {
+                      debugPrint('Error loading existing attendance: $e');
+                    }
+
+                    return _isHoliday
+                        ? Center(
+                            child: Text(
+                              'Holiday mode — save to notify parents & post notice.',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.poppins(color: Colors.grey.shade700),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                            itemCount: students.length,
+                            itemBuilder: (context, i) {
+                              try {
+                                final s = students[i];
+                                final present = _present[s.roll] ?? true;
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(color: Colors.grey.shade200),
+                                  ),
+                                  child: InkWell(
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) => StudentDetailScreen(
+                                            studentDocId: s.docId,
+                                            studentName: s.name,
+                                            studentRoll: s.roll,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: SwitchListTile(
+                                      title: Text(s.name, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                                      subtitle: Text('Roll ${s.roll}', style: GoogleFonts.poppins(fontSize: 13)),
+                                      value: present,
+                                      activeThumbColor: Colors.green.shade700,
+                                      inactiveThumbColor: Colors.red.shade300,
+                                      onChanged: (v) => setState(() => _present[s.roll] = v),
+                                    ),
+                                  ),
+                                );
+                              } catch (e) {
+                                debugPrint('Error rendering student item: $e');
+                                return const SizedBox.shrink();
+                              }
+                            },
+                          );
+                  },
+                );
+              } catch (e) {
+                debugPrint('Teacher attendance widget error: $e');
+                return const Center(child: Text('Error loading students'));
+              }
             },
           ),
         ),
