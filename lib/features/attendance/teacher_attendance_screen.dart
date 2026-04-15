@@ -509,7 +509,7 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                 return StreamBuilder<DocumentSnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('attendance')
-                      .doc('$_classLevel-${DateTime(_date.year, _date.month, _date.day).year.toString().padLeft(4, '0')}-${DateTime(_date.year, _date.month, _date.day).month.toString().padLeft(2, '0')}-${DateTime(_date.year, _date.month, _date.day).day.toString().padLeft(2, '0')}')
+                      .doc('$_classLevel-${_date.year.toString().padLeft(4, '0')}-${_date.month.toString().padLeft(2, '0')}-${_date.day.toString().padLeft(2, '0')}')
                       .snapshots(),
                   builder: (context, attendanceSnapshot) {
                     try {

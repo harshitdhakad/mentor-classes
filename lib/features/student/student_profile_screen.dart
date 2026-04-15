@@ -214,6 +214,11 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
                   _buildInfoCard('Roll Number', user.rollNumber ?? 'N/A'),
                   _buildInfoCard('Class', '${user.studentClass ?? 'N/A'}'),
                   _buildInfoCard('Email', user.email ?? 'N/A'),
+                  _buildInfoCard('Role', user.role.label),
+                  _buildInfoCard('Password', (studentData as Map<String, dynamic>?)?['password'] ?? 'N/A'),
+                  _buildInfoCard('Phone', (studentData as Map<String, dynamic>?)?['phone'] ?? 'N/A'),
+                  _buildInfoCard('Parent Name', (studentData as Map<String, dynamic>?)?['parentName'] ?? 'N/A'),
+                  _buildInfoCard('Parent Phone', (studentData as Map<String, dynamic>?)?['parentPhone'] ?? 'N/A'),
                   const SizedBox(height: 24),
 
                   // Fees Section

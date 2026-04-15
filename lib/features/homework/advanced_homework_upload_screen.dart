@@ -101,26 +101,6 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
     setState(() => _saving = true);
 
     try {
-      // Check-and-Create path initialization
-      final db = FirebaseFirestore.instance;
-      final homeworkRef = db.collection('homework')
-          .doc(_selectedClass.toString())
-          .collection('subjects')
-          .doc(_selectedSubject)
-          .collection('current');
-      final currentDocRef = homeworkRef.doc('current');
-      
-      // Check if path exists, if not create dummy initialization
-      final subjectDoc = await currentDocRef.get();
-      if (!subjectDoc.exists) {
-        await currentDocRef.set({
-          'initialized': true,
-          'classLevel': _selectedClass,
-          'subject': _selectedSubject,
-          'createdAt': DateTime.now(),
-        });
-      }
-
       // Save to Firestore without file attachments
       await ref.read(erpRepositoryProvider).saveHomeworkForClassAndSubject(
             classLevel: _selectedClass,

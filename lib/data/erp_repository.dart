@@ -1521,6 +1521,30 @@ class ErpRepository {
   }) async {
     try {
       debugPrint('📝 Saving homework: classLevel=$classLevel, subject=$subject');
+      
+      // Ensure class document exists
+      final classDocRef = _homework.doc(classLevel.toString());
+      final classDoc = await classDocRef.get();
+      if (!classDoc.exists) {
+        await classDocRef.set({
+          'classLevel': classLevel,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        debugPrint('✅ Created class document for class $classLevel');
+      }
+      
+      // Ensure subject document exists
+      final subjectDocRef = classDocRef.collection('subjects').doc(subject);
+      final subjectDoc = await subjectDocRef.get();
+      if (!subjectDoc.exists) {
+        await subjectDocRef.set({
+          'subject': subject,
+          'classLevel': classLevel,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        debugPrint('✅ Created subject document for $subject');
+      }
+      
       final homeworkRef = _classHomeworkRef(classLevel, subject);
       final currentDocRef = homeworkRef.doc('current');
 

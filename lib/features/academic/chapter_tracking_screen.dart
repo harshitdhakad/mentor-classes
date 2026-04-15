@@ -234,10 +234,14 @@ class _ChapterTrackingScreenState
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                                 isDense: true,
                               ),
-                              style: GoogleFonts.poppins(fontSize: 13),
+                              style: GoogleFonts.poppins(fontSize: 13, color: Colors.black87),
+                              dropdownColor: Colors.white,
                               items: [
                                 for (var c = StudentClassLevels.min; c <= StudentClassLevels.max; c++)
-                                  DropdownMenuItem(value: c, child: Text('Class $c', style: GoogleFonts.poppins(fontSize: 13))),
+                                  DropdownMenuItem(
+                                    value: c,
+                                    child: Text('Class $c', style: GoogleFonts.poppins(fontSize: 13, color: Colors.black87)),
+                                  ),
                               ],
                               onChanged: (v) => setState(() => _selectedClass = v ?? 8),
                             ),
