@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../data/erp_providers.dart';
+import '../../data/erp_repository.dart';
 import '../../models/user_model.dart';
 import '../auth/auth_service.dart';
 import '../student/student_detail_screen.dart';
@@ -36,174 +37,12 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
     super.dispose();
   }
 
-  Future<void> _cleanupOldHomework() async {
-    debugPrint('🧹 Starting auto-delete homework cleanup...');
-    
-    try {
-      // Fetch all class-level homework documents
-      final classSnapshot = await FirebaseFirestore.instance
-          .collection('homework')
-          .get();
-      
-      debugPrint('📊 Found ${classSnapshot.docs.length} class documents');
-      
-      final now = DateTime.now();
-      final cutoff = now.subtract(const Duration(hours: 24));
-      debugPrint('📅 Deleting homework older than: ${cutoff.toIso8601String()}');
-      
-      int deletedCount = 0;
-      int failedCount = 0;
-      
-      // Iterate through each class
-      for (final classDoc in classSnapshot.docs) {
-        debugPrint('� Processing class: ${classDoc.id}');
-        
-        // Get all subjects for this class
-        final subjectsSnapshot = await classDoc.reference.collection('subjects').get();
-        
-        // Iterate through each subject
-        for (final subjectDoc in subjectsSnapshot.docs) {
-          // Get all homework documents for this subject
-          final homeworkSnapshot = await subjectDoc.reference.collection('current').get();
-          
-          // Iterate through each homework document
-          for (final homeworkDoc in homeworkSnapshot.docs) {
-            final data = homeworkDoc.data();
-            final assignedAt = data['assignedAt'] as Timestamp?;
-            
-            if (assignedAt == null) continue;
-            
-            final assignedDate = assignedAt.toDate();
-            
-            // Check if homework is older than 24 hours
-            if (assignedDate.isBefore(cutoff)) {
-              debugPrint('🗑️ Old homework found - assignedAt: ${assignedDate.toIso8601String()}');
-              
-              try {
-                // Delete document from Firestore
-                await homeworkDoc.reference.delete();
-                debugPrint('✅ Deleted homework document: ${homeworkDoc.id}');
-                deletedCount++;
-              } catch (e) {
-                debugPrint('❌ Failed to delete ${homeworkDoc.id}: $e');
-                failedCount++;
-              }
-            }
-          }
-        }
-      }
-      
-      debugPrint('🧹 Homework cleanup complete: $deletedCount deleted, $failedCount failed');
-    } catch (e) {
-      debugPrint('❌ Error during homework cleanup: $e');
-    }
-  }
-
-  Future<void> _cleanupOldSchedules() async {
-    debugPrint('🧹 Starting auto-delete schedule cleanup...');
-    
-    try {
-      final schedulesSnapshot = await FirebaseFirestore.instance
-          .collection('schedules')
-          .get();
-      
-      debugPrint('📊 Found ${schedulesSnapshot.docs.length} schedule documents');
-      
-      final now = DateTime.now();
-      final cutoff = now.subtract(const Duration(days: 7));
-      debugPrint('📅 Deleting schedules older than: ${cutoff.toIso8601String()}');
-      
-      int deletedCount = 0;
-      int failedCount = 0;
-      
-      for (final doc in schedulesSnapshot.docs) {
-        final data = doc.data();
-        final updatedAt = data['updatedAt'] as Timestamp?;
-        final createdAt = data['createdAt'] as Timestamp?;
-        
-        final dateToCheck = updatedAt ?? createdAt;
-        
-        if (dateToCheck == null) continue;
-        
-        final date = dateToCheck.toDate();
-        
-        if (date.isBefore(cutoff)) {
-          debugPrint('🗑️ Old schedule found - date: ${date.toIso8601String()}');
-          
-          try {
-            await doc.reference.delete();
-            debugPrint('✅ Deleted schedule: ${doc.id}');
-            deletedCount++;
-          } catch (e) {
-            debugPrint('❌ Failed to delete ${doc.id}: $e');
-            failedCount++;
-          }
-        }
-      }
-      
-      debugPrint('🧹 Schedule cleanup complete: $deletedCount deleted, $failedCount failed');
-    } catch (e) {
-      debugPrint('❌ Error during schedule cleanup: $e');
-    }
-  }
-
-  Future<void> _cleanupOldNotifications() async {
-    debugPrint('🧹 Starting auto-delete notification cleanup...');
-    
-    try {
-      final announcementsSnapshot = await FirebaseFirestore.instance
-          .collection('announcements')
-          .get();
-      
-      debugPrint('📊 Found ${announcementsSnapshot.docs.length} announcement documents');
-      
-      final now = DateTime.now();
-      final cutoff = now.subtract(const Duration(days: 7));
-      debugPrint('📅 Deleting notifications older than: ${cutoff.toIso8601String()}');
-      
-      int deletedCount = 0;
-      int failedCount = 0;
-      
-      for (final doc in announcementsSnapshot.docs) {
-        final data = doc.data();
-        final createdAt = data['createdAt'] as Timestamp?;
-        
-        if (createdAt == null) continue;
-        
-        final date = createdAt.toDate();
-        
-        if (date.isBefore(cutoff)) {
-          debugPrint('🗑️ Old notification found - date: ${date.toIso8601String()}');
-          
-          try {
-            await doc.reference.delete();
-            debugPrint('✅ Deleted notification: ${doc.id}');
-            deletedCount++;
-          } catch (e) {
-            debugPrint('❌ Failed to delete ${doc.id}: $e');
-            failedCount++;
-          }
-        }
-      }
-      
-      debugPrint('🧹 Notification cleanup complete: $deletedCount deleted, $failedCount failed');
-    } catch (e) {
-      debugPrint('❌ Error during notification cleanup: $e');
-    }
-  }
-
   Future<void> _save() async {
     final user = ref.read(authProvider);
     if (user == null || !user.isStaff || user.email == null) return;
 
     setState(() => _saving = true);
     try {
-      // STEP 1: Trigger auto-delete cleanup for old data
-      await _cleanupOldHomework();
-      await _cleanupOldSchedules();
-      await _cleanupOldNotifications();
-
-      // STEP 2: Save attendance
       await ref.read(erpRepositoryProvider).saveAttendance(
             classLevel: _classLevel,
             date: DateTime(_date.year, _date.month, _date.day),
@@ -212,15 +51,6 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
             presentByRoll: Map<String, bool>.from(_present),
             savedByEmail: user.email!,
           );
-
-      // Refresh students provider to ensure data consistency
-      ref.invalidate(studentsByClassEnhancedProvider(_classLevel));
-
-      // Update current homework date if different
-      final currentHomeworkDate = ref.read(currentHomeworkDateProvider);
-      if (!DateUtils.isSameDay(currentHomeworkDate, _date)) {
-        ref.read(currentHomeworkDateProvider.notifier).setDate(_date);
-      }
 
       if (mounted) {
         setState(() {
@@ -357,6 +187,7 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                               _holidayMsg.clear();
                               _attendanceExists = false;
                               _isEditMode = false;
+                              _attendanceJustSaved = false;
                             });
                           },
                         ),

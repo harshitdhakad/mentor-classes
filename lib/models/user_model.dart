@@ -1,7 +1,7 @@
-/// Valid CBSE class levels for multi-class ERP support (5–10).
+/// Valid CBSE class levels for multi-class ERP support (1–12).
 abstract final class StudentClassLevels {
-  static const int min = 5;
-  static const int max = 10;
+  static const int min = 1;
+  static const int max = 12;
 
   static bool isValid(int? value) =>
       value != null && value >= min && value <= max;
