@@ -69,15 +69,72 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
 
   Future<void> _copyToClipboard() async {
     try {
-      await Clipboard.setData(ClipboardData(text: ''));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Text copied to clipboard'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
+      final studentsAsync = ref.watch(studentsByClassEnhancedProvider(_classLevel));
+
+      studentsAsync.when(
+        data: (studentData) {
+          final buffer = StringBuffer();
+          buffer.writeln('═══════════════════════════════════════');
+          buffer.writeln('ATTENDANCE SUMMARY');
+          buffer.writeln('═══════════════════════════════════════');
+          buffer.writeln('Class: $_classLevel');
+          buffer.writeln('Date: ${DateFormat.yMMMd().format(_date)}');
+          buffer.writeln('Status: ${_isHoliday ? "Holiday" : "Regular"}');
+          if (_isHoliday && _holidayMsg.text.isNotEmpty) {
+            buffer.writeln('Message: ${_holidayMsg.text}');
+          }
+          buffer.writeln('═══════════════════════════════════════');
+          buffer.writeln('ROLL NO | NAME | STATUS');
+          buffer.writeln('──────────────────────────────────────────');
+
+          for (final student in studentData) {
+            final roll = student.rollNumber;
+            final name = student.name;
+            final status = _isHoliday ? 'HOLIDAY' : (_present[roll] == true ? 'PRESENT' : 'ABSENT');
+            buffer.writeln('$roll | $name | $status');
+          }
+
+          buffer.writeln('═══════════════════════════════════════');
+
+          final presentCount = _present.values.where((v) => v).length;
+          final absentCount = _present.values.where((v) => !v).length;
+          buffer.writeln('Total Students: ${studentData.length}');
+          buffer.writeln('Present: $presentCount');
+          buffer.writeln('Absent: $absentCount');
+          buffer.writeln('═══════════════════════════════════════');
+
+          Clipboard.setData(ClipboardData(text: buffer.toString())).then((_) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('✅ Attendance copied to clipboard'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+          });
+        },
+        loading: () {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Loading students...'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        },
+        error: (e, _) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('⚠️ Error: $e'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        },
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

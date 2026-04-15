@@ -604,8 +604,7 @@ class _DetailedStudentPerformanceScreenState
       stream: FirebaseFirestore.instance
           .collection('test_marks')
           .doc(classLevel.toString())
-          .collection('tests')
-          .where('testKind', isEqualTo: 'series')
+          .collection('test_series')
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
@@ -664,7 +663,7 @@ class _DetailedStudentPerformanceScreenState
             final subjectMarks = <String, double>{};
 
             for (final test in seriesTests) {
-              final marks = test['marksByRoll'] as Map<String, dynamic>?;
+              final marks = test['marks'] as Map<String, dynamic>?;
               final notGivenRolls = (test['notGivenRolls'] as List?)?.cast<String>() ?? [];
               final maxMarks = _parseDouble(test['maxMarks'] ?? 100);
               final subject = test['subject'] as String? ?? 'General';

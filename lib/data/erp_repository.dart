@@ -65,6 +65,11 @@ class ErpRepository {
   CollectionReference<Map<String, dynamic>> _classTestMarksRef(int classLevel) {
     return _testMarks.doc(classLevel.toString()).collection('tests');
   }
+
+  /// Get class-wise test series subcollection reference: test_marks/{classLevel}/test_series
+  CollectionReference<Map<String, dynamic>> _classTestSeriesRef(int classLevel) {
+    return _testMarks.doc(classLevel.toString()).collection('test_series');
+  }
   
   /// Get class-wise homework subcollection reference: homework/{classLevel}/subjects/{subject}/current
   CollectionReference<Map<String, dynamic>> _classHomeworkRef(int classLevel, String subject) {
@@ -361,8 +366,12 @@ class ErpRepository {
     debugPrint('📝 Saving test marks: classLevel=$classLevel, subject=$subject, testName=$testName');
     debugPrint('📝 Marks to save: ${marksOut.length} students, NG: ${ngSet.length}');
 
-    // Save to class-wise subcollection: test_marks/{classLevel}/tests/{testId}
-    await _classTestMarksRef(classLevel).add({
+    // Save to appropriate subcollection based on testKind
+    final collectionRef = testKind == 'series'
+        ? _classTestSeriesRef(classLevel)
+        : _classTestMarksRef(classLevel);
+
+    await collectionRef.add({
       'classLevel': classLevel,
       'subject': subject.trim(),
       'topic': topic.trim(),
@@ -378,7 +387,7 @@ class ErpRepository {
       'createdAt': FieldValue.serverTimestamp(),
     });
 
-    debugPrint('✅ Test marks saved successfully to Firestore (test_marks/$classLevel)');
+    debugPrint('✅ Test marks saved successfully to Firestore (test_marks/$classLevel/${testKind == 'series' ? 'test_series' : 'tests'})');
 
     sendParentNotification(
       title: 'Marks published — Class $classLevel',
@@ -938,15 +947,16 @@ class ErpRepository {
     required String rollNumber,
     required String studentName,
   }) async {
-    final marksSnap = await _classTestMarksRef(classLevel)
+    final testHistories = <StudentTestHistory>[];
+
+    // Fetch from tests subcollection
+    final testsSnap = await _classTestMarksRef(classLevel)
         .orderBy('createdAt', descending: true)
         .get();
 
-    final testHistories = <StudentTestHistory>[];
-
-    for (final docSnap in marksSnap.docs) {
+    for (final docSnap in testsSnap.docs) {
       final data = docSnap.data();
-      final marksByRoll = Map<String, dynamic>.from(data['marksByRoll'] as Map? ?? {});
+      final marksByRoll = Map<String, dynamic>.from(data['marks'] as Map? ?? {});
       final percentageByRoll =
           Map<String, dynamic>.from(data['percentageByRoll'] as Map? ?? {});
       final ranksByRoll = Map<String, dynamic>.from(data['ranksByRoll'] as Map? ?? {});
@@ -972,6 +982,38 @@ class ErpRepository {
       }
     }
 
+    // Fetch from test_series subcollection
+    final seriesSnap = await _classTestSeriesRef(classLevel)
+        .orderBy('createdAt', descending: true)
+        .get();
+
+    for (final docSnap in seriesSnap.docs) {
+      final data = docSnap.data();
+      final marksByRoll = Map<String, dynamic>.from(data['marks'] as Map? ?? {});
+
+      if (marksByRoll.containsKey(rollNumber)) {
+        final marks = _parseDouble(marksByRoll[rollNumber]);
+        final percentage = (marks / _parseDouble(data['maxMarks'] ?? 100)) * 100;
+        final rankByRoll = Map<String, dynamic>.from(data['rankByRoll'] as Map? ?? {});
+        final rank = (rankByRoll[rollNumber] as num?)?.toInt() ?? 0;
+
+        testHistories.add(StudentTestHistory(
+          testId: docSnap.id,
+          testName: (data['testName'] as String?) ?? 'Test',
+          subject: (data['subject'] as String?) ?? 'General',
+          topic: (data['topic'] as String?) ?? '—',
+          testType: (data['testKind'] as String?) ?? 'series',
+          marksObtained: marks,
+          maxMarks: _parseDouble(data['maxMarks'] ?? 100),
+          percentage: percentage,
+          classRank: rank,
+          totalParticipants: (marksByRoll.length),
+          testDate: ((data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now()),
+          seriesId: (data['seriesId'] as String?),
+        ));
+      }
+    }
+
     if (testHistories.isEmpty) return null;
 
     return StudentPerformanceAnalytics(
@@ -988,19 +1030,48 @@ class ErpRepository {
     String? testType,
     String? subject,
   }) async {
-    var query = _testMarks.where('classLevel', isEqualTo: classLevel);
+    final allMarks = <EnhancedTestMarks>[];
 
-    if (testType != null && testType.isNotEmpty) {
-      query = query.where('testType', isEqualTo: testType);
-    }
+    // Fetch from tests subcollection (single tests)
+    final testsQuery = _classTestMarksRef(classLevel);
     if (subject != null && subject.isNotEmpty) {
-      query = query.where('subject', isEqualTo: subject);
+      final subjectSnap = await testsQuery.where('subject', isEqualTo: subject).orderBy('createdAt', descending: true).get();
+      allMarks.addAll(
+        subjectSnap.docs
+            .map((doc) => EnhancedTestMarks.fromFirestore(doc as DocumentSnapshot<Map<String, dynamic>>))
+      );
+    } else {
+      final testsSnap = await testsQuery.orderBy('createdAt', descending: true).get();
+      allMarks.addAll(
+        testsSnap.docs
+            .map((doc) => EnhancedTestMarks.fromFirestore(doc as DocumentSnapshot<Map<String, dynamic>>))
+      );
     }
 
-    final snap = await query.orderBy('createdAt', descending: true).get();
-    return snap.docs
-        .map((doc) => EnhancedTestMarks.fromFirestore(doc as DocumentSnapshot<Map<String, dynamic>>))
-        .toList();
+    // Fetch from test_series subcollection (series tests)
+    final seriesQuery = _classTestSeriesRef(classLevel);
+    if (subject != null && subject.isNotEmpty) {
+      final subjectSnap = await seriesQuery.where('subject', isEqualTo: subject).orderBy('createdAt', descending: true).get();
+      allMarks.addAll(
+        subjectSnap.docs
+            .map((doc) => EnhancedTestMarks.fromFirestore(doc as DocumentSnapshot<Map<String, dynamic>>))
+      );
+    } else {
+      final seriesSnap = await seriesQuery.orderBy('createdAt', descending: true).get();
+      allMarks.addAll(
+        seriesSnap.docs
+            .map((doc) => EnhancedTestMarks.fromFirestore(doc as DocumentSnapshot<Map<String, dynamic>>))
+      );
+    }
+
+    // Filter by testType if specified
+    if (testType != null && testType.isNotEmpty) {
+      return allMarks.where((m) => m.testKind == testType).toList();
+    }
+
+    // Sort by createdAt descending
+    allMarks.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return allMarks;
   }
 
   // ====================== FEES ANALYTICS ======================

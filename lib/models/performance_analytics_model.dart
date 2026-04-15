@@ -274,12 +274,14 @@ class StudentTestHistory {
     required this.classRank,
     required this.totalParticipants,
     required this.testDate,
+    this.seriesId,
   });
 
   final String testId;
   final String testName;
   final String subject;
   final String topic;
+  final String? seriesId;
   final String testType; // 'weekly', 'monthly', 'unit', 'term'
   final double marksObtained;
   final double maxMarks;

@@ -37,39 +37,8 @@ class MainShellScreen extends ConsumerStatefulWidget {
   ConsumerState<MainShellScreen> createState() => _MainShellScreenState();
 }
 
-class _MainShellScreenState extends ConsumerState<MainShellScreen> with WidgetsBindingObserver {
+class _MainShellScreenState extends ConsumerState<MainShellScreen> {
   int _index = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    // Refresh data when app comes back to foreground
-    if (state == AppLifecycleState.resumed) {
-      debugPrint('App resumed - refreshing data');
-      _refreshAllProviders();
-    }
-  }
-
-  void _refreshAllProviders() {
-    // Refresh critical providers when app resumes
-    try {
-      ref.invalidate(authProvider);
-    } catch (e) {
-      debugPrint('Error refreshing providers: $e');
-    }
-  }
 
   void _refreshProvidersForIndex(int index) {
     // Refresh specific providers based on which tab is selected

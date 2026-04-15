@@ -76,7 +76,7 @@ class _DetailedAttendanceSummaryScreenState
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('attendance')
+            .collectionGroup('attendance')
             .where('classLevel', isEqualTo: classLevel)
             .orderBy('dateKey', descending: false)
             .snapshots(),

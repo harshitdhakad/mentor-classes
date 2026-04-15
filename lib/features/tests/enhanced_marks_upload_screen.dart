@@ -31,6 +31,7 @@ class _EnhancedMarksUploadScreenState
   
   // Test series specific
   final List<String> _subjects = ['Maths', 'Science', 'English', 'SST'];
+  final Set<String> _selectedSubjects = {'Maths', 'Science', 'English', 'SST'}; // Default all selected
   int _currentSubjectIndex = 0;
   final Map<String, Map<String, Map<String, dynamic>>> _seriesMarksBySubject = {}; // subject -> {roll -> {marks, ng}}
 
@@ -302,63 +303,110 @@ class _EnhancedMarksUploadScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Test Series Progress',
+                    'Select Subjects for Test Series',
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 12),
-                  // Subject progress indicator
-                  Row(
-                    children: List.generate(_subjects.length, (index) {
-                      final subject = _subjects[index];
-                      final isCompleted = index < _currentSubjectIndex;
-                      final isCurrent = index == _currentSubjectIndex;
-                      return Expanded(
-                        child: Container(
-                          margin: EdgeInsets.only(right: index < _subjects.length - 1 ? 4 : 0),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: isCompleted
-                                ? Colors.green
-                                : isCurrent
-                                    ? AppTheme.deepBluePrimary
-                                    : Colors.grey[300],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Column(
-                            children: [
-                              Text(
-                                isCompleted ? '✓' : '${index + 1}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                subject,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _subjects.map((subject) {
+                      final isSelected = _selectedSubjects.contains(subject);
+                      return FilterChip(
+                        label: Text(subject),
+                        selected: isSelected,
+                        onSelected: (_) {
+                          setState(() {
+                            if (isSelected) {
+                              _selectedSubjects.remove(subject);
+                              // Remove marks for deselected subject
+                              _seriesMarksBySubject.remove(subject);
+                            } else {
+                              _selectedSubjects.add(subject);
+                            }
+                            // Reset current index if needed
+                            if (_currentSubjectIndex >= _selectedSubjects.length) {
+                              _currentSubjectIndex = 0;
+                            }
+                          });
+                        },
+                        backgroundColor: Colors.grey[100],
+                        selectedColor: AppTheme.deepBluePrimary.withValues(alpha: 0.2),
+                        labelStyle: TextStyle(
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                          color: isSelected ? AppTheme.deepBluePrimary : Colors.grey[700],
                         ),
                       );
-                    }),
+                    }).toList(),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Current Subject: ${_subjects[_currentSubjectIndex]}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.deepBluePrimary,
+                  const SizedBox(height: 16),
+                  if (_selectedSubjects.isNotEmpty) ...[
+                    Text(
+                      'Test Series Progress',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    // Subject progress indicator
+                    Row(
+                      children: List.generate(_selectedSubjects.length, (index) {
+                        final subject = _selectedSubjects.elementAt(index);
+                        final isCompleted = index < _currentSubjectIndex;
+                        final isCurrent = index == _currentSubjectIndex;
+                        return Expanded(
+                          child: Container(
+                            margin: EdgeInsets.only(right: index < _selectedSubjects.length - 1 ? 4 : 0),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: isCompleted
+                                  ? Colors.green
+                                  : isCurrent
+                                      ? AppTheme.deepBluePrimary
+                                      : Colors.grey[300],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  isCompleted ? '✓' : '${index + 1}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  subject,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Current Subject: ${_selectedSubjects.elementAt(_currentSubjectIndex)}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.deepBluePrimary,
+                      ),
+                    ),
+                  ] else
+                    Text(
+                      'Please select at least one subject',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
                 ],
               ),
             if (_selectedTestType == 'series') const SizedBox(height: 24),
@@ -366,7 +414,7 @@ class _EnhancedMarksUploadScreenState
             // Students Marks Entry
             Text(
               _selectedTestType == 'series'
-                  ? '${_subjects[_currentSubjectIndex]} Marks'
+                  ? (_selectedSubjects.isNotEmpty ? '${_selectedSubjects.elementAt(_currentSubjectIndex)} Marks' : 'Select Subjects First')
                   : 'Student Marks',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
@@ -419,12 +467,14 @@ class _EnhancedMarksUploadScreenState
                         ),
                       )
                     : const Icon(Icons.check_circle),
-                label: Text(_isLoading 
-                    ? 'Saving...' 
+                label: Text(_isLoading
+                    ? 'Saving...'
                     : _selectedTestType == 'series'
-                        ? (_currentSubjectIndex == _subjects.length - 1
-                            ? 'Save Test Series'
-                            : 'Save ${_subjects[_currentSubjectIndex]} Marks')
+                        ? (_selectedSubjects.isEmpty
+                            ? 'Select Subjects First'
+                            : (_currentSubjectIndex == _selectedSubjects.length - 1
+                                ? 'Save Test Series'
+                                : 'Save ${_selectedSubjects.elementAt(_currentSubjectIndex)} Marks'))
                         : 'Save Marks'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.deepBluePrimary,
@@ -849,8 +899,21 @@ class _EnhancedMarksUploadScreenState
 
       // Handle test series flow
       if (_selectedTestType == 'series') {
-        final currentSubject = _subjects[_currentSubjectIndex];
-        
+        if (_selectedSubjects.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please select at least one subject'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          setState(() => _isLoading = false);
+          return;
+        }
+
+        final currentSubject = _selectedSubjects.elementAt(_currentSubjectIndex);
+
         // Save current subject marks to series data
         _seriesMarksBySubject[currentSubject] = {
           for (final entry in _studentMarks.entries)
@@ -860,7 +923,7 @@ class _EnhancedMarksUploadScreenState
             }
         };
 
-        if (_currentSubjectIndex < _subjects.length - 1) {
+        if (_currentSubjectIndex < _selectedSubjects.length - 1) {
           // Move to next subject
           if (mounted) {
             setState(() {
@@ -871,7 +934,7 @@ class _EnhancedMarksUploadScreenState
 
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('✅ $currentSubject marks saved! Next: ${_subjects[_currentSubjectIndex]}'),
+                content: Text('✅ $currentSubject marks saved! Next: ${_selectedSubjects.elementAt(_currentSubjectIndex)}'),
                 backgroundColor: Colors.green,
                 duration: const Duration(seconds: 3),
                 action: SnackBarAction(
@@ -882,7 +945,7 @@ class _EnhancedMarksUploadScreenState
                     await Clipboard.setData(ClipboardData(text: clipboardText));
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Copied to clipboard!'), duration: Duration(seconds: 1)),
+                        const SnackBar(content: Text('Copied to clipboard!'), duration: Duration(seconds: 7)),
                       );
                     }
                   },
@@ -943,7 +1006,7 @@ class _EnhancedMarksUploadScreenState
                 await Clipboard.setData(ClipboardData(text: clipboardText));
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Copied to clipboard!'), duration: Duration(seconds: 1)),
+                    const SnackBar(content: Text('Copied to clipboard!'), duration: Duration(seconds: 7)),
                   );
                 }
               },
@@ -969,94 +1032,122 @@ class _EnhancedMarksUploadScreenState
 
   Future<void> _saveTestSeriesToFirestore(dynamic repo, int maxMarks) async {
     final seriesId = _seriesIdController.text;
-    
-    // Save each subject as a separate test document
-    for (final subject in _subjects) {
-      final subjectMarks = _seriesMarksBySubject[subject] ?? {};
-      
-      final marksByRoll = <String, double>{};
-      final notGivenRolls = <String>[];
-      
-      for (final entry in subjectMarks.entries) {
-        final isNg = (entry.value['ng'] as bool?) ?? false;
-        if (isNg) {
-          notGivenRolls.add(entry.key);
-        } else {
-          marksByRoll[entry.key] = (entry.value['marks'] as int?)?.toDouble() ?? 0;
-        }
+
+    if (_selectedSubjects.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No subjects selected'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
-      
-      // Calculate ranks for this subject
-      final percentageByRoll = <String, double>{};
-      for (final entry in marksByRoll.entries) {
-        percentageByRoll[entry.key] = (entry.value / maxMarks) * 100;
-      }
-      
-      final ranksByRoll = <String, int>{};
-      if (percentageByRoll.isNotEmpty) {
-        final sorted = percentageByRoll.entries.toList()
-          ..sort((a, b) => b.value.compareTo(a.value));
-        
-        for (int i = 0; i < sorted.length; i++) {
-          ranksByRoll[sorted[i].key] = i + 1;
-        }
-      }
-      
-      await repo.saveTestMarksExtended(
-        classLevel: _selectedClass,
-        subject: subject,
-        topic: _topicController.text.isEmpty ? '—' : _topicController.text,
-        testName: '${_testNameController.text} - $subject',
-        testKind: 'series',
-        seriesId: seriesId,
-        date: DateTime.now(),
-        maxMarks: maxMarks.toDouble(),
-        marksByRoll: marksByRoll,
-        notGivenRolls: notGivenRolls,
-        savedBy: 'teacher@mentorclasses.com',
-      );
+      setState(() => _isLoading = false);
+      return;
     }
 
-    if (mounted) {
-      // Reset form
-      _testNameController.clear();
-      _subjectController.clear();
-      _topicController.clear();
-      _seriesIdController.clear();
-      _maxMarksController.text = '100';
-      setState(() {
-        _studentMarks.clear();
-        _seriesMarksBySubject.clear();
-        _currentSubjectIndex = 0;
-        _isLoading = false;
-      });
+    try {
+      // Save each selected subject as a separate test document
+      for (final subject in _selectedSubjects) {
+        final subjectMarks = _seriesMarksBySubject[subject] ?? {};
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('✅ Test Series saved successfully!'),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 4),
-          action: SnackBarAction(
-            label: 'Copy to Clipboard',
-            textColor: Colors.white,
-            onPressed: () async {
-              final overallClipboard = await _generateSeriesClipboardSummary(maxMarks);
-              await Clipboard.setData(ClipboardData(text: overallClipboard));
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Copied to clipboard!'), duration: Duration(seconds: 1)),
-                );
-              }
-            },
+        final marksByRoll = <String, double>{};
+        final notGivenRolls = <String>[];
+
+        for (final entry in subjectMarks.entries) {
+          final isNg = (entry.value['ng'] as bool?) ?? false;
+          if (isNg) {
+            notGivenRolls.add(entry.key);
+          } else {
+            marksByRoll[entry.key] = (entry.value['marks'] as int?)?.toDouble() ?? 0;
+          }
+        }
+
+        // Calculate ranks for this subject
+        final percentageByRoll = <String, double>{};
+        for (final entry in marksByRoll.entries) {
+          percentageByRoll[entry.key] = (entry.value / maxMarks) * 100;
+        }
+
+        final ranksByRoll = <String, int>{};
+        if (percentageByRoll.isNotEmpty) {
+          final sorted = percentageByRoll.entries.toList()
+            ..sort((a, b) => b.value.compareTo(a.value));
+
+          for (int i = 0; i < sorted.length; i++) {
+            ranksByRoll[sorted[i].key] = i + 1;
+          }
+        }
+
+        await repo.saveTestMarksExtended(
+          classLevel: _selectedClass,
+          subject: subject,
+          topic: _topicController.text.isEmpty ? '—' : _topicController.text,
+          testName: '${_testNameController.text} - $subject',
+          testKind: 'series',
+          seriesId: seriesId,
+          date: DateTime.now(),
+          maxMarks: maxMarks.toDouble(),
+          marksByRoll: marksByRoll,
+          notGivenRolls: notGivenRolls,
+          savedBy: 'teacher@mentorclasses.com',
+        );
+      }
+
+      if (mounted) {
+        // Reset form
+        _testNameController.clear();
+        _subjectController.clear();
+        _topicController.clear();
+        _seriesIdController.clear();
+        _maxMarksController.text = '100';
+        setState(() {
+          _studentMarks.clear();
+          _seriesMarksBySubject.clear();
+          _currentSubjectIndex = 0;
+          _selectedSubjects.clear();
+          _selectedSubjects.addAll(['Maths', 'Science', 'English', 'SST']);
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('✅ Test Series saved successfully!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Copy to Clipboard',
+              textColor: Colors.white,
+              onPressed: () async {
+                final overallClipboard = await _generateSeriesClipboardSummary(maxMarks);
+                await Clipboard.setData(ClipboardData(text: overallClipboard));
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Copied to clipboard!'), duration: Duration(seconds: 7)),
+                  );
+                }
+              },
+            ),
           ),
-        ),
-      );
+        );
 
-      // Refresh data
-      // ignore: unused_result
-      ref.refresh(
-        testMarksForClassProvider((_selectedClass, 'series', seriesId)),
-      );
+        // Refresh data
+        // ignore: unused_result
+        ref.refresh(
+          testMarksForClassProvider((_selectedClass, 'series', seriesId)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving test series: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+      setState(() => _isLoading = false);
     }
   }
 
