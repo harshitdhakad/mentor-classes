@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../data/erp_providers.dart';
@@ -37,21 +37,27 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
   Future<void> _copyHomeworkToClipboard() async {
     try {
       final buffer = StringBuffer();
-      buffer.writeln('═══════════════════════════════════════');
-      buffer.writeln('📚 HOMEWORK DETAILS');
-      buffer.writeln('═══════════════════════════════════════');
-      buffer.writeln('Subject: $_selectedSubject');
-      buffer.writeln('Class: $_selectedClass');
-      buffer.writeln('═══════════════════════════════════════');
+      buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      buffer.writeln('📚 HOMEWORK ASSIGNMENT');
+      buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      buffer.writeln('');
+      buffer.writeln('📖 Subject: $_selectedSubject');
+      buffer.writeln('🏫 Class: $_selectedClass');
+      buffer.writeln('📅 Date: ${DateFormat('dd MMM yyyy').format(DateTime.now())}');
+      buffer.writeln('');
+      buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      buffer.writeln('📝 HOMEWORK DETAILS:');
+      buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      buffer.writeln('');
       
       if (_lastSavedText != null && _lastSavedText!.isNotEmpty) {
-        buffer.writeln('📝 TEXT CONTENT:');
         buffer.writeln(_lastSavedText);
-        buffer.writeln('═══════════════════════════════════════');
+        buffer.writeln('');
       }
       
-      buffer.writeln('📅 Assigned: ${DateTime.now().toString()}');
-      buffer.writeln('═══════════════════════════════════════');
+      buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      buffer.writeln('Note: Please complete and submit on time.');
+      buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       await Clipboard.setData(ClipboardData(text: buffer.toString()));
       

@@ -20,6 +20,7 @@ class StudentListItem {
     required this.docId,
     this.totalFees = 0.0,
     this.remainingFees = 0.0,
+    this.classLevel = 0,
   });
 
   final String roll;
@@ -27,6 +28,7 @@ class StudentListItem {
   final String docId;
   final double totalFees; // Total fees amount
   final double remainingFees; // Dues/remaining fees
+  final int classLevel; // Student's class level
 
   double get paidFees => (totalFees - remainingFees).clamp(0.0, totalFees);
 }

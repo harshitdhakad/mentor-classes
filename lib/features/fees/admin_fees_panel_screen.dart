@@ -280,7 +280,7 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
                                             children: [
                                               Expanded(
                                                 child: ElevatedButton.icon(
-                                                  onPressed: () => _showUpdateFeesDialog(doc.id, paid, total),
+                                                  onPressed: () => _showUpdateFeesDialog(doc.id, total, remaining),
                                                   icon: const Icon(Icons.edit),
                                                   label: const Text('Update Fees'),
                                                   style: ElevatedButton.styleFrom(

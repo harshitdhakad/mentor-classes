@@ -349,6 +349,7 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                           onChanged: (v) {
                             if (v == null) return;
                             setState(() {
+                              _classLevel = v;
                               _present.clear();
                               _isHoliday = false;
                               _holidayMsg.clear();
@@ -413,7 +414,6 @@ Absent Rolls: ${absentStudents.join(', ')}''';
             stream: FirebaseFirestore.instance
                 .collection('users')
                 .where('role', isEqualTo: 'student')
-                .where('studentClass', isEqualTo: _classLevel)
                 .snapshots(),
             builder: (context, snapshot) {
               try {
@@ -443,7 +443,7 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                 }
                 // Check empty data AFTER error
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  debugPrint('Teacher attendance: No documents found in users collection for class $_classLevel');
+                  debugPrint('Teacher attendance: No documents found in users collection');
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -451,7 +451,7 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                         Icon(Icons.person_search, size: 48, color: Colors.grey.shade300),
                         const SizedBox(height: 16),
                         Text(
-                          'No students found for Class $_classLevel.',
+                          'No students found.',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(color: Colors.grey.shade700),
                         ),
@@ -466,9 +466,9 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                   );
                 }
 
-                debugPrint('Teacher attendance: Found ${snapshot.data!.docs.length} students for class $_classLevel');
+                debugPrint('Teacher attendance: Found ${snapshot.data!.docs.length} total students');
 
-                // Map documents to student items (already filtered at Firestore level)
+                // Map documents to student items and filter by class level
                 final students = snapshot.data!.docs.map((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   // Mandatory fields: Name, RollNo, Class, Password
@@ -486,10 +486,16 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                     docId: doc.id,
                     roll: rollNo,
                     name: name,
+                    classLevel: studentClass,
                   );
                 }).toList();
 
-                if (students.isEmpty) {
+                // Filter students by selected class level
+                final filteredStudents = students.where((s) => s.classLevel == _classLevel).toList();
+
+                debugPrint('Teacher attendance: Filtered to ${filteredStudents.length} students for class $_classLevel');
+
+                if (filteredStudents.isEmpty) {
                   return Center(
                     child: Text(
                       'No students found for Class $_classLevel.',
@@ -501,7 +507,7 @@ Absent Rolls: ${absentStudents.join(', ')}''';
 
                 // Initialize present map if empty
                 if (_present.isEmpty) {
-                  for (final s in students) {
+                  for (final s in filteredStudents) {
                     _present[s.roll] = true;
                   }
                 }
@@ -552,10 +558,10 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                           )
                         : ListView.builder(
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                            itemCount: students.length,
+                            itemCount: filteredStudents.length,
                             itemBuilder: (context, i) {
                               try {
-                                final s = students[i];
+                                final s = filteredStudents[i];
                                 final present = _present[s.roll] ?? true;
                                 return Card(
                                   margin: const EdgeInsets.only(bottom: 8),
