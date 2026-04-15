@@ -316,6 +316,7 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
         final overallMarks = seriesData['overallMarks'] as Map<String, dynamic>? ?? {};
         final overallRanks = seriesData['overallRanks'] as Map<String, dynamic>? ?? {};
         final overallNotGivenRolls = (seriesData['overallNotGivenRolls'] as List?)?.map((e) => e.toString()).toSet() ?? {};
+        final subjectData = seriesData['subjectData'] as Map<String, dynamic>? ?? {};
         final maxMarks = (seriesData['maxMarks'] as num?)?.toDouble() ?? 100.0;
         final totalMaxMarks = maxMarks * subjects.length;
 
@@ -353,6 +354,19 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
               final percentage = isNg ? 0.0 : ((mark as num?)?.toDouble() ?? 0.0) / totalMaxMarks * 100;
               final rank = (overallRanks[roll] as num?)?.toInt() ?? 0;
 
+              // Get subject-wise marks
+              final subjectMarks = <String, double>{};
+              for (final subject in subjects) {
+                final subjectInfo = subjectData[subject] as Map<String, dynamic>? ?? {};
+                final marksMap = subjectInfo['marks'] as Map<String, dynamic>? ?? {};
+                final notGivenRolls = (subjectInfo['notGivenRolls'] as List?)?.map((e) => e.toString()).toSet() ?? {};
+                if (marksMap.containsKey(roll) && !notGivenRolls.contains(roll)) {
+                  subjectMarks[subject] = (marksMap[roll] as num?)?.toDouble() ?? 0.0;
+                } else {
+                  subjectMarks[subject] = 0.0;
+                }
+              }
+
               leaderboard.add({
                 'roll': roll,
                 'name': studentDataMap[roll] ?? 'Unknown',
@@ -360,15 +374,17 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
                 'percentage': percentage,
                 'rank': rank,
                 'isNg': isNg,
+                'subjectMarks': subjectMarks,
               });
             });
 
             leaderboard.sort((a, b) => (a['rank'] as int).compareTo(b['rank'] as int));
 
-            return _buildLeaderboardList(
+            return _buildTestSeriesLeaderboardList(
               leaderboard,
               testName,
-              '${subjects.join(', ')} (${subjects.length} subjects)',
+              subjects,
+              maxMarks,
               totalMaxMarks,
               isStudent,
               user?.rollNumber,
@@ -377,6 +393,393 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
         );
       },
     );
+  }
+
+  Widget _buildTestSeriesLeaderboardList(
+    List<Map<String, dynamic>> leaderboard,
+    String testName,
+    List<dynamic> subjects,
+    double maxMarks,
+    double totalMaxMarks,
+    bool isStudent,
+    String? currentUserRoll,
+  ) {
+    // Find current user's data for highlighting
+    Map<String, dynamic>? currentUserData;
+    if (isStudent && currentUserRoll != null) {
+      currentUserData = leaderboard.firstWhere(
+        (entry) => entry['roll'] == currentUserRoll,
+        orElse: () => {},
+      );
+    }
+
+    final studentRank = currentUserData?['rank'] as int?;
+    final studentMark = currentUserData?['mark'] as double?;
+    final studentPercentage = currentUserData?['percentage'] as double?;
+    final studentIsNg = currentUserData?['isNg'] as bool?;
+    final studentSubjectMarks = currentUserData?['subjectMarks'] as Map<String, double>?;
+
+    return Column(
+      children: [
+        // Test Info Header with Gradient
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppTheme.deepBlue, AppTheme.deepBlue.withValues(alpha: 0.8)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(20),
+              bottomRight: Radius.circular(20),
+            ),
+          ),
+          child: Column(
+            children: [
+              Text(
+                testName,
+                style: GoogleFonts.poppins(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${subjects.join(', ')} (${subjects.length} subjects)',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Max Marks: $maxMarks per subject',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Current User's Rank Card
+        if (currentUserData != null && currentUserData!.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppTheme.deepBlue.withValues(alpha: 0.15),
+                  AppTheme.deepBlue.withValues(alpha: 0.05),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.deepBlue.withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Your Performance',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.deepBlue,
+                      ),
+                    ),
+                    if (studentRank != null && studentRank > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.deepBlue,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '#$studentRank',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Total Score',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        Text(
+                          studentIsNg == true ? 'N/A' : '${studentMark?.toStringAsFixed(0) ?? 0} / ${totalMaxMarks.toStringAsFixed(0)}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.deepBlue,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'Percentage',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        Text(
+                          studentIsNg == true ? 'N/A' : '${studentPercentage?.toStringAsFixed(1) ?? 0}%',
+                          style: GoogleFonts.poppins(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: studentIsNg == true ? Colors.grey : (studentPercentage ?? 0) >= 75 ? Colors.green : (studentPercentage ?? 0) >= 50 ? Colors.orange : Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                if (studentSubjectMarks != null && studentSubjectMarks.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Subject-wise Marks',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.deepBlue,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: subjects.map((subject) {
+                      final subjectMark = studentSubjectMarks[subject.toString()] ?? 0.0;
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              subject.toString(),
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                            Text(
+                              '${subjectMark.toStringAsFixed(0)}/$maxMarks',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.deepBlue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        // Leaderboard List
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            itemCount: leaderboard.length,
+            itemBuilder: (context, index) {
+              final entry = leaderboard[index];
+              final rank = entry['rank'] as int;
+              final roll = entry['roll'] as String;
+              final name = entry['name'] as String;
+              final mark = entry['mark'] as double;
+              final percentage = entry['percentage'] as double;
+              final isNg = entry['isNg'] as bool;
+              final subjectMarks = entry['subjectMarks'] as Map<String, double>?;
+
+              final isCurrentUser = isStudent && roll == currentUserRoll;
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                elevation: isCurrentUser ? 4 : 1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: isCurrentUser ? AppTheme.deepBlue : Colors.grey.shade200,
+                    width: isCurrentUser ? 2 : 1,
+                  ),
+                ),
+                child: ExpansionTile(
+                  tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      gradient: _getRankGradient(rank),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '#$rank',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  title: Text(
+                    name,
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: isCurrentUser ? AppTheme.deepBlue : Colors.black87,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Roll: $roll',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  trailing: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        isNg ? 'N/A' : '${mark.toStringAsFixed(0)}',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: isNg ? Colors.grey : AppTheme.deepBlue,
+                        ),
+                      ),
+                      Text(
+                        isNg ? 'N/A' : '${percentage.toStringAsFixed(1)}%',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: isNg ? Colors.grey : Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  children: [
+                    if (subjectMarks != null && subjectMarks.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Subject-wise Marks',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                                color: AppTheme.deepBlue,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: subjects.map((subject) {
+                                final subjectMark = subjectMarks[subject.toString()] ?? 0.0;
+                                final subjectPercentage = maxMarks > 0 ? (subjectMark / maxMarks) * 100 : 0.0;
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.grey.shade200),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        subject.toString(),
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${subjectMark.toStringAsFixed(0)}/$maxMarks',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.deepBlue,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${subjectPercentage.toStringAsFixed(1)}%',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 10,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  LinearGradient _getRankGradient(int rank) {
+    if (rank == 1) {
+      return LinearGradient(colors: [Colors.amber, Colors.amber.shade700]);
+    } else if (rank == 2) {
+      return LinearGradient(colors: [Colors.grey.shade300, Colors.grey.shade500]);
+    } else if (rank == 3) {
+      return LinearGradient(colors: [Colors.brown.shade300, Colors.brown.shade600]);
+    }
+    return LinearGradient(colors: [AppTheme.deepBlue.withValues(alpha: 0.8), AppTheme.deepBlue]);
   }
 
   Widget _buildLeaderboardList(
