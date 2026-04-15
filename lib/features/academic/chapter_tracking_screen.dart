@@ -203,95 +203,87 @@ class _ChapterTrackingScreenState
       ),
       body: Column(
         children: [
-          // Class Selector (Teachers only)
-          if (!isStudent)
-            Container(
-              padding: const EdgeInsets.all(16),
-              color: Colors.grey.shade50,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Select Class',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.deepBlue,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<int>(
-                    initialValue: _selectedClass,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
-                    items: [
-                      for (var c = StudentClassLevels.min; c <= StudentClassLevels.max; c++)
-                        DropdownMenuItem(value: c, child: Text('Class $c')),
-                    ],
-                    onChanged: (v) => setState(() => _selectedClass = v ?? 8),
-                  ),
-                ],
-              ),
-            ),
-
-          // Subject Selector
+          // Compact Selection Header
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             color: Colors.grey.shade50,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Select Subject',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.deepBlue,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _subjects.map((subject) {
-                    final isSelected = _selectedSubject == subject;
-                    return FilterChip(
-                      label: Text(subject),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() => _selectedSubject = subject);
-                      },
-                      backgroundColor: Colors.grey[200],
-                      selectedColor: AppTheme.deepBlue.withValues(alpha: 0.2),
-                      labelStyle: TextStyle(
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                        color: isSelected ? AppTheme.deepBlue : Colors.black87,
+                // Class and Subject Row
+                Row(
+                  children: [
+                    // Class Selector (Teachers only)
+                    if (!isStudent)
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Class',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.deepBlue,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            DropdownButtonFormField<int>(
+                              value: _selectedClass,
+                              decoration: InputDecoration(
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                isDense: true,
+                              ),
+                              style: GoogleFonts.poppins(fontSize: 13),
+                              items: [
+                                for (var c = StudentClassLevels.min; c <= StudentClassLevels.max; c++)
+                                  DropdownMenuItem(value: c, child: Text('Class $c', style: GoogleFonts.poppins(fontSize: 13))),
+                              ],
+                              onChanged: (v) => setState(() => _selectedClass = v ?? 8),
+                            ),
+                          ],
+                        ),
                       ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-
-          // Add Chapter Section (Teachers/Admins only)
-          if (!isStudent)
-            Container(
-              padding: const EdgeInsets.all(16),
-              color: Colors.grey.shade100,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Add New Chapter',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.deepBlue,
+                    if (!isStudent) const SizedBox(width: 8),
+                    
+                    // Subject Selector
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Subject',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.deepBlue,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          DropdownButtonFormField<String>(
+                            value: _selectedSubject,
+                            decoration: InputDecoration(
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              isDense: true,
+                            ),
+                            style: GoogleFonts.poppins(fontSize: 13),
+                            items: _subjects.map((subject) {
+                              return DropdownMenuItem(
+                                value: subject,
+                                child: Text(subject, style: GoogleFonts.poppins(fontSize: 13)),
+                              );
+                            }).toList(),
+                            onChanged: (v) => setState(() => _selectedSubject = v ?? 'Civics'),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
+                ),
+
+                // Add Chapter Section (Teachers/Admins only)
+                if (!isStudent) ...[
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -300,14 +292,11 @@ class _ChapterTrackingScreenState
                           controller: _chapterController,
                           decoration: InputDecoration(
                             hintText: 'Enter chapter name',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            isDense: true,
                           ),
+                          style: GoogleFonts.poppins(fontSize: 13),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -315,12 +304,14 @@ class _ChapterTrackingScreenState
                         icon: const Icon(Icons.add_circle),
                         color: AppTheme.deepBlue,
                         onPressed: _addChapter,
+                        tooltip: 'Add Chapter',
                       ),
                     ],
                   ),
                 ],
-              ),
+              ],
             ),
+          ),
 
           // Chapters List
           Expanded(

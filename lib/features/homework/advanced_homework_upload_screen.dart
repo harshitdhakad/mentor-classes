@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../data/erp_providers.dart';
@@ -24,11 +25,56 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
   String _selectedSubject = 'Maths';
   final _textController = TextEditingController();
   bool _saving = false;
+  bool _homeworkJustSaved = false;
+  String? _lastSavedText;
 
   @override
   void dispose() {
     _textController.dispose();
     super.dispose();
+  }
+
+  Future<void> _copyHomeworkToClipboard() async {
+    try {
+      final buffer = StringBuffer();
+      buffer.writeln('═══════════════════════════════════════');
+      buffer.writeln('📚 HOMEWORK DETAILS');
+      buffer.writeln('═══════════════════════════════════════');
+      buffer.writeln('Subject: $_selectedSubject');
+      buffer.writeln('Class: $_selectedClass');
+      buffer.writeln('═══════════════════════════════════════');
+      
+      if (_lastSavedText != null && _lastSavedText!.isNotEmpty) {
+        buffer.writeln('📝 TEXT CONTENT:');
+        buffer.writeln(_lastSavedText);
+        buffer.writeln('═══════════════════════════════════════');
+      }
+      
+      buffer.writeln('📅 Assigned: ${DateTime.now().toString()}');
+      buffer.writeln('═══════════════════════════════════════');
+
+      await Clipboard.setData(ClipboardData(text: buffer.toString()));
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('✅ Homework copied to clipboard'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚠️ Error copying: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   /// Save homework (overwrites existing for same class+subject)
@@ -61,7 +107,7 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
           .doc(_selectedClass.toString())
           .collection('subjects')
           .doc(_selectedSubject)
-          .collection('homework');
+          .collection('current');
       final currentDocRef = homeworkRef.doc('current');
       
       // Check if path exists, if not create dummy initialization
@@ -96,6 +142,21 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
           ),
         );
 
+        // Show copy to clipboard popup
+        setState(() {
+          _homeworkJustSaved = true;
+          _lastSavedText = textContent;
+        });
+
+        // Auto-dismiss popup after 10 seconds
+        Future.delayed(const Duration(seconds: 10), () {
+          if (mounted) {
+            setState(() {
+              _homeworkJustSaved = false;
+            });
+          }
+        });
+
         // Clear UI
         _textController.clear();
         setState(() {});
@@ -125,26 +186,27 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Text(
-            'Upload Homework',
-            style: GoogleFonts.poppins(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.deepBlue,
+    return Scaffold(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Text(
+              'Upload Homework',
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.deepBlue,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Publish homework for a class and subject. New homework overwrites previous.',
-            style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 20),
+            const SizedBox(height: 4),
+            Text(
+              'Publish homework for a class and subject. New homework overwrites previous.',
+              style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 20),
 
           // CLASS SELECTOR
           Text(
@@ -249,6 +311,53 @@ class _AdvancedHomeworkUploadScreenState extends ConsumerState<AdvancedHomeworkU
           ),
         ],
       ),
+    ),
+    bottomSheet: _homeworkJustSaved
+        ? Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              border: Border(top: BorderSide(color: Colors.green.shade300)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.green),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Homework Published!',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.green.shade800,
+                        ),
+                      ),
+                      Text(
+                        'Copy to clipboard to share with students',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.green.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                FilledButton.icon(
+                  onPressed: _copyHomeworkToClipboard,
+                  icon: const Icon(Icons.copy, size: 18),
+                  label: const Text('Copy'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.green.shade600,
+                  ),
+                ),
+              ],
+            ),
+          )
+        : null,
     );
   }
 }

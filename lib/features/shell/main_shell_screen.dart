@@ -39,20 +39,11 @@ class MainShellScreen extends ConsumerStatefulWidget {
 
 class _MainShellScreenState extends ConsumerState<MainShellScreen> with WidgetsBindingObserver {
   int _index = 0;
-  bool _isLoadingTimeout = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Add timeout to handle cases where auth state doesn't load
-    Future.delayed(const Duration(seconds: 5), () {
-      if (mounted && ref.read(authProvider) == null) {
-        setState(() => _isLoadingTimeout = true);
-        debugPrint('MainShellScreen: Auth state timeout, forcing logout');
-        ref.read(authProvider.notifier).signOut();
-      }
-    });
   }
 
   @override
@@ -174,18 +165,8 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> with WidgetsB
                 const CircularProgressIndicator(),
                 const SizedBox(height: 16),
                 Text(
-                  _isLoadingTimeout ? 'Session expired. Please login again.' : 'Loading...',
+                  'Loading...',
                   style: GoogleFonts.poppins(color: Colors.grey),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pushReplacementNamed('/login');
-                  },
-                  child: Text(
-                    'Go to Login',
-                    style: GoogleFonts.poppins(color: AppTheme.deepBlue),
-                  ),
                 ),
               ],
             ),
@@ -386,13 +367,6 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> with WidgetsB
                 '$e',
                 style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
                 textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pushReplacementNamed('/login');
-                },
-                child: const Text('Go to Login'),
               ),
             ],
           ),

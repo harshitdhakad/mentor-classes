@@ -319,9 +319,8 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
   }
 
   Future<void> _showUpdateFeesDialog(String docId, double currentTotal, double currentRemaining) async {
-    final currentPaid = currentTotal - currentRemaining;
     final totalController = TextEditingController(text: currentTotal.toStringAsFixed(0));
-    final paidController = TextEditingController(text: currentPaid.toStringAsFixed(0));
+    final paidController = TextEditingController(text: '0'); // Always start with 0
     double remainingFees = currentRemaining;
 
     final result = await showDialog<bool>(
@@ -335,7 +334,7 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Total Fees (Read-only)
+              // Total Fees (Read-only from student data)
               TextField(
                 controller: totalController,
                 decoration: InputDecoration(
@@ -345,6 +344,7 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
                   filled: true,
                   fillColor: Colors.grey.shade100,
                   suffixIcon: const Icon(Icons.lock, size: 20, color: Colors.grey),
+                  helperText: 'Fixed amount from student data',
                 ),
                 keyboardType: TextInputType.number,
                 enabled: false,
@@ -354,14 +354,14 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              // Paid Fees (Editable)
+              // Paid Fees (Editable, starts at 0)
               TextField(
                 controller: paidController,
                 decoration: InputDecoration(
-                  labelText: 'Paid Fees',
+                  labelText: 'Amount to Pay',
                   prefixText: '₹',
                   border: const OutlineInputBorder(),
-                  helperText: 'Enter amount paid by student',
+                  helperText: 'Enter amount student is paying now',
                 ),
                 keyboardType: TextInputType.number,
                 onChanged: (value) {
@@ -422,7 +422,7 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
 
     if (result == true) {
       final total = double.tryParse(totalController.text) ?? currentTotal;
-      final paid = double.tryParse(paidController.text) ?? currentPaid;
+      final paid = double.tryParse(paidController.text) ?? 0;
       final newRemaining = total - paid;
 
       try {
@@ -432,7 +432,6 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
             .update({
           'total_fees': total,
           'remaining_fees': newRemaining,
-          'paid_fees': paid,
           'fees_updated_at': FieldValue.serverTimestamp(),
         });
 

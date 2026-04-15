@@ -64,9 +64,9 @@ class ErpRepository {
     return _testMarks.doc(classLevel.toString()).collection('tests');
   }
   
-  /// Get class-wise homework subcollection reference: homework/{classLevel}/subjects/{subject}
+  /// Get class-wise homework subcollection reference: homework/{classLevel}/subjects/{subject}/current
   CollectionReference<Map<String, dynamic>> _classHomeworkRef(int classLevel, String subject) {
-    return _homework.doc(classLevel.toString()).collection('subjects').doc(subject).collection('homework');
+    return _homework.doc(classLevel.toString()).collection('subjects').doc(subject).collection('current');
   }
   CollectionReference<Map<String, dynamic>> get _announcements => _db.collection('announcements');
   CollectionReference<Map<String, dynamic>> get _testSeries => _db.collection('test_series');
@@ -1531,8 +1531,8 @@ class ErpRepository {
         'imageUrls': imageUrls,
         'attachments': attachments,
         'assignedBy': assignedBy,
-        'assignedAt': DateTime.now(),
-        'lastUpdatedAt': DateTime.now(),
+        'assignedAt': FieldValue.serverTimestamp(),
+        'lastUpdatedAt': FieldValue.serverTimestamp(),
         'expiryTime': DateTime.now().add(const Duration(hours: 24)),
       };
 
@@ -1555,12 +1555,13 @@ class ErpRepository {
   }) async {
     try {
       final homeworkRef = _classHomeworkRef(classLevel, subject);
-      final currentDocRef = homeworkRef.doc('current');
-      final doc = await currentDocRef.get();
-
-      if (!doc.exists) return null;
-
-      return HomeWorkAssignment.fromMap('current', doc.data() ?? {});
+      final currentSnapshot = await homeworkRef.get();
+      
+      if (currentSnapshot.docs.isEmpty) return null;
+      
+      // Get the most recent homework document from the current subcollection
+      final latestDoc = currentSnapshot.docs.first;
+      return HomeWorkAssignment.fromMap(subject, latestDoc.data());
     } catch (e) {
       debugPrint('❌ Error fetching homework: $e');
       return null;
@@ -1586,10 +1587,13 @@ class ErpRepository {
 
         for (final subject in subjects) {
           final homeworkRef = _classHomeworkRef(classLevel, subject);
-          final currentDoc = await homeworkRef.doc('current').get();
-          if (currentDoc.exists) {
+          final currentSnapshot = await homeworkRef.get();
+          
+          if (currentSnapshot.docs.isNotEmpty) {
+            // Get the most recent homework document from the current subcollection
+            final latestDoc = currentSnapshot.docs.first;
             debugPrint('✅ Found homework for subject: $subject');
-            final hw = HomeWorkAssignment.fromMap(subject, currentDoc.data() ?? {});
+            final hw = HomeWorkAssignment.fromMap(subject, latestDoc.data());
             homeworkMap[subject] = hw;
           } else {
             debugPrint('⚠️ No homework found for subject: $subject');
@@ -1623,7 +1627,12 @@ class ErpRepository {
   }) async {
     try {
       final homeworkRef = _classHomeworkRef(classLevel, subject);
-      await homeworkRef.doc('current').delete();
+      final currentSnapshot = await homeworkRef.get();
+      
+      // Delete all documents in the current subcollection
+      for (final doc in currentSnapshot.docs) {
+        await doc.reference.delete();
+      }
     } catch (e) {
       debugPrint('❌ Error deleting homework: $e');
       rethrow;

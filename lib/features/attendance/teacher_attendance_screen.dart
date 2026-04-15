@@ -30,8 +30,6 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
   bool _attendanceJustSaved = false;
   bool _isEditMode = false;
   bool _attendanceExists = false;
-  bool _isLoadingStudents = false;
-  bool _studentsLoadTimedOut = false;
 
   @override
   void dispose() {
@@ -67,7 +65,7 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
         // Iterate through each subject
         for (final subjectDoc in subjectsSnapshot.docs) {
           // Get all homework documents for this subject
-          final homeworkSnapshot = await subjectDoc.reference.collection('homework').get();
+          final homeworkSnapshot = await subjectDoc.reference.collection('current').get();
           
           // Iterate through each homework document
           for (final homeworkDoc in homeworkSnapshot.docs) {
@@ -351,12 +349,11 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                           onChanged: (v) {
                             if (v == null) return;
                             setState(() {
-                              _classLevel = v;
                               _present.clear();
+                              _isHoliday = false;
+                              _holidayMsg.clear();
                               _attendanceExists = false;
                               _isEditMode = false;
-                              _isLoadingStudents = false;
-                              _studentsLoadTimedOut = false;
                             });
                           },
                         ),
@@ -376,8 +373,6 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                                 _date = picked;
                                 _attendanceExists = false;
                                 _isEditMode = false;
-                                _isLoadingStudents = false;
-                                _studentsLoadTimedOut = false;
                               });
                             }
                           },
@@ -422,33 +417,7 @@ Absent Rolls: ${absentStudents.join(', ')}''';
                 .snapshots(),
             builder: (context, snapshot) {
               try {
-                // Set loading state and start timeout timer
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  if (!_isLoadingStudents) {
-                    setState(() => _isLoadingStudents = true);
-                    // 10 second timeout
-                    Future.delayed(const Duration(seconds: 10), () {
-                      if (mounted && _isLoadingStudents) {
-                        setState(() {
-                          _isLoadingStudents = false;
-                          _studentsLoadTimedOut = true;
-                        });
-                      }
-                    });
-                  }
-                  debugPrint('Teacher attendance: Waiting for data - class: $_classLevel');
-                  return const Center(child: CircularProgressIndicator());
-                }
-                
-                // Reset loading states when data arrives
-                if (_isLoadingStudents || _studentsLoadTimedOut) {
-                  setState(() {
-                    _isLoadingStudents = false;
-                    _studentsLoadTimedOut = false;
-                  });
-                }
-                
-                // Check error state AFTER waiting
+                // Check error state
                 if (snapshot.hasError) {
                   debugPrint('Teacher attendance error: ${snapshot.error}');
                   debugPrint('Error details: ${snapshot.error.toString()}');
