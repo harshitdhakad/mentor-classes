@@ -322,6 +322,7 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
     final totalController = TextEditingController(text: currentTotal.toStringAsFixed(0));
     final paidController = TextEditingController(text: '0'); // Always start with 0
     double remainingFees = currentRemaining;
+    final currentPaid = currentTotal - currentRemaining; // Calculate already paid amount
 
     final result = await showDialog<bool>(
       context: context,
@@ -353,22 +354,28 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
+              const SizedBox(height: 8),
+              Text(
+                'Already Paid: ₹${currentPaid.toInt()}',
+                style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600),
+              ),
               const SizedBox(height: 12),
               // Paid Fees (Editable, starts at 0)
               TextField(
                 controller: paidController,
                 decoration: InputDecoration(
-                  labelText: 'Amount to Pay',
+                  labelText: 'Amount to Pay Now',
                   prefixText: '₹',
                   border: const OutlineInputBorder(),
-                  helperText: 'Enter amount student is paying now',
+                  helperText: 'Enter additional amount student is paying',
                 ),
                 keyboardType: TextInputType.number,
                 onChanged: (value) {
-                  final paid = double.tryParse(value) ?? 0;
+                  final additionalPaid = double.tryParse(value) ?? 0;
                   final total = double.tryParse(totalController.text) ?? 0;
+                  final newPaid = currentPaid + additionalPaid;
                   setDialogState(() {
-                    remainingFees = total - paid;
+                    remainingFees = total - newPaid;
                   });
                 },
               ),
@@ -422,8 +429,9 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
 
     if (result == true) {
       final total = double.tryParse(totalController.text) ?? currentTotal;
-      final paid = double.tryParse(paidController.text) ?? 0;
-      final newRemaining = total - paid;
+      final additionalPaid = double.tryParse(paidController.text) ?? 0;
+      final newPaid = currentPaid + additionalPaid;
+      final newRemaining = total - newPaid;
 
       try {
         await FirebaseFirestore.instance
@@ -441,7 +449,7 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('✅ Fees updated: Paid ₹${paid.toInt()}, Remaining ₹${newRemaining.toInt()}'),
+              content: Text('✅ Fees updated: Paid ₹${additionalPaid.toInt()}, Total Paid ₹${newPaid.toInt()}, Remaining ₹${newRemaining.toInt()}'),
               backgroundColor: Colors.green,
             ),
           );
@@ -458,9 +466,6 @@ class _AdminFeesPanelScreenState extends ConsumerState<AdminFeesPanelScreen> {
         }
       }
     }
-
-    totalController.dispose();
-    paidController.dispose();
   }
 }
 
