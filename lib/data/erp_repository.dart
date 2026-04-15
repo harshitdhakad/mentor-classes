@@ -396,6 +396,47 @@ class ErpRepository {
     );
   }
 
+  /// Save test series as a single document with all subjects
+  Future<void> saveTestSeries({
+    required int classLevel,
+    required String testName,
+    required String seriesId,
+    required DateTime date,
+    required double maxMarks,
+    required List<String> subjects,
+    required Map<String, Map<String, dynamic>> subjectData,
+    required Map<String, double> overallMarks,
+    required List<String> overallNotGivenRolls,
+    required Map<String, int> overallRanks,
+    required String savedBy,
+  }) async {
+    debugPrint('📝 Saving test series: classLevel=$classLevel, seriesId=$seriesId, subjects=$subjects');
+    debugPrint('📝 Overall marks: ${overallMarks.length} students, NG: ${overallNotGivenRolls.length}');
+
+    await _classTestSeriesRef(classLevel).add({
+      'classLevel': classLevel,
+      'testName': testName.trim(),
+      'seriesId': seriesId.trim(),
+      'dateKey': dateKey(date),
+      'maxMarks': maxMarks,
+      'subjects': subjects,
+      'subjectData': subjectData,
+      'overallMarks': overallMarks,
+      'overallNotGivenRolls': overallNotGivenRolls,
+      'overallRanks': overallRanks,
+      'createdBy': savedBy,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    debugPrint('✅ Test series saved successfully to Firestore (test_marks/$classLevel/test_series)');
+
+    sendParentNotification(
+      title: 'Test Series published — Class $classLevel',
+      body: '${testName.trim()} (${dateKey(date)})',
+      meta: {'class': '$classLevel', 'seriesId': seriesId, 'kind': 'series'},
+    );
+  }
+
   Future<String> createTestSeries({
     required String name,
     required int classLevel,
@@ -989,25 +1030,38 @@ class ErpRepository {
 
     for (final docSnap in seriesSnap.docs) {
       final data = docSnap.data();
-      final marksByRoll = Map<String, dynamic>.from(data['marks'] as Map? ?? {});
+      final overallMarks = Map<String, dynamic>.from(data['overallMarks'] as Map? ?? {});
+      final subjects = data['subjects'] as List? ?? [];
+      final subjectData = Map<String, dynamic>.from(data['subjectData'] as Map? ?? {});
 
-      if (marksByRoll.containsKey(rollNumber)) {
-        final marks = _parseDouble(marksByRoll[rollNumber]);
-        final percentage = (marks / _parseDouble(data['maxMarks'] ?? 100)) * 100;
-        final rankByRoll = Map<String, dynamic>.from(data['rankByRoll'] as Map? ?? {});
-        final rank = (rankByRoll[rollNumber] as num?)?.toInt() ?? 0;
+      if (overallMarks.containsKey(rollNumber)) {
+        final marks = _parseDouble(overallMarks[rollNumber]);
+        final overallMaxMarks = _parseDouble(data['maxMarks'] ?? 100) * subjects.length;
+        final percentage = (marks / overallMaxMarks) * 100;
+        final overallRanks = Map<String, dynamic>.from(data['overallRanks'] as Map? ?? {});
+        final rank = (overallRanks[rollNumber] as num?)?.toInt() ?? 0;
+
+        // Calculate subject-wise breakdown for display
+        final subjectBreakdown = <String, double>{};
+        for (final subject in subjects) {
+          final subjectInfo = subjectData[subject] as Map<String, dynamic>? ?? {};
+          final subjectMarks = subjectInfo['marks'] as Map<String, dynamic>? ?? {};
+          if (subjectMarks.containsKey(rollNumber)) {
+            subjectBreakdown[subject] = _parseDouble(subjectMarks[rollNumber]);
+          }
+        }
 
         testHistories.add(StudentTestHistory(
           testId: docSnap.id,
-          testName: (data['testName'] as String?) ?? 'Test',
-          subject: (data['subject'] as String?) ?? 'General',
-          topic: (data['topic'] as String?) ?? '—',
-          testType: (data['testKind'] as String?) ?? 'series',
+          testName: (data['testName'] as String?) ?? 'Test Series',
+          subject: subjects.join(', '),
+          topic: subjects.length > 1 ? '${subjects.length} subjects' : subjects.firstOrNull ?? '—',
+          testType: 'series',
           marksObtained: marks,
-          maxMarks: _parseDouble(data['maxMarks'] ?? 100),
+          maxMarks: overallMaxMarks,
           percentage: percentage,
           classRank: rank,
-          totalParticipants: (marksByRoll.length),
+          totalParticipants: (overallMarks.length),
           testDate: ((data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now()),
           seriesId: (data['seriesId'] as String?),
         ));

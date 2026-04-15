@@ -627,7 +627,7 @@ class _DetailedStudentPerformanceScreenState
                   Icon(Icons.assessment, size: 64, color: Colors.grey.shade300),
                   const SizedBox(height: 16),
                   Text(
-                    'No data available for this class.',
+                    'No test series data available.',
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       color: Colors.grey.shade600,
@@ -638,46 +638,44 @@ class _DetailedStudentPerformanceScreenState
             );
           }
 
-        // Group by seriesId
-        final seriesMap = <String, List<Map<String, dynamic>>>{};
-        for (final doc in snapshot.data!.docs) {
-          final docData = doc.data() as Map<String, dynamic>;
-          final seriesId = docData['seriesId'] as String? ?? 'Unknown';
-          if (!seriesMap.containsKey(seriesId)) {
-            seriesMap[seriesId] = [];
-          }
-          seriesMap[seriesId]!.add(docData);
-        }
-
         return ListView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: seriesMap.length,
+          itemCount: snapshot.data!.docs.length,
           itemBuilder: (context, index) {
-            final seriesId = seriesMap.keys.elementAt(index);
-            final seriesTests = seriesMap[seriesId]!;
+            final doc = snapshot.data!.docs[index];
+            final docData = doc.data() as Map<String, dynamic>;
 
-            // Calculate total marks for this student across all subjects in series
-            double totalMarks = 0;
-            double totalMaxMarks = 0;
-            int subjectCount = 0;
+            final testName = docData['testName'] as String? ?? 'Test Series';
+            final seriesId = docData['seriesId'] as String? ?? 'Unknown';
+            final subjects = docData['subjects'] as List? ?? [];
+            final subjectData = docData['subjectData'] as Map<String, dynamic>? ?? {};
+            final overallMarks = docData['overallMarks'] as Map<String, dynamic>? ?? {};
+            final overallNotGivenRolls = (docData['overallNotGivenRolls'] as List?)?.cast<String>() ?? [];
+            final overallRanks = docData['overallRanks'] as Map<String, dynamic>? ?? {};
+            final maxMarks = _parseDouble(docData['maxMarks'] ?? 100);
+
+            // Get student's overall marks
+            final studentOverallMarks = overallMarks.containsKey(rollNumber)
+                ? _parseDouble(overallMarks[rollNumber])
+                : 0.0;
+            final totalMaxMarks = maxMarks * subjects.length;
+            final overallPercentage = totalMaxMarks > 0 ? (studentOverallMarks / totalMaxMarks) * 100 : 0.0;
+            final studentRank = overallRanks.containsKey(rollNumber)
+                ? (overallRanks[rollNumber] as num?)?.toInt() ?? 0
+                : 0;
+
+            // Get subject-wise marks
             final subjectMarks = <String, double>{};
-
-            for (final test in seriesTests) {
-              final marks = test['marks'] as Map<String, dynamic>?;
-              final notGivenRolls = (test['notGivenRolls'] as List?)?.cast<String>() ?? [];
-              final maxMarks = _parseDouble(test['maxMarks'] ?? 100);
-              final subject = test['subject'] as String? ?? 'General';
-
-              if (marks != null && marks.containsKey(rollNumber) && !notGivenRolls.contains(rollNumber)) {
-                final score = (marks[rollNumber] as num?)?.toDouble() ?? 0.0;
-                subjectMarks[subject] = score;
-                totalMarks += score;
-                totalMaxMarks += maxMarks;
-                subjectCount++;
+            final subjectRanks = <String, int>{};
+            for (final subject in subjects) {
+              final subjectInfo = subjectData[subject] as Map<String, dynamic>? ?? {};
+              final marksMap = subjectInfo['marks'] as Map<String, dynamic>? ?? {};
+              final ranksMap = subjectInfo['ranks'] as Map<String, dynamic>? ?? {};
+              if (marksMap.containsKey(rollNumber)) {
+                subjectMarks[subject] = _parseDouble(marksMap[rollNumber]);
+                subjectRanks[subject] = (ranksMap[rollNumber] as num?)?.toInt() ?? 0;
               }
             }
-
-            final overallPercentage = totalMaxMarks > 0 ? (totalMarks / totalMaxMarks) * 100 : 0.0;
 
             return Card(
               margin: const EdgeInsets.only(bottom: 16),
@@ -691,7 +689,7 @@ class _DetailedStudentPerformanceScreenState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      seriesId,
+                      testName,
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
@@ -699,7 +697,7 @@ class _DetailedStudentPerformanceScreenState
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '$subjectCount subjects • ${overallPercentage.toStringAsFixed(1)}%',
+                      'ID: $seriesId • ${subjects.length} subjects',
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         color: Colors.grey.shade600,
@@ -720,23 +718,74 @@ class _DetailedStudentPerformanceScreenState
                             color: Colors.blue.shade50,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Total Score',
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Total Score',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${studentOverallMarks.toStringAsFixed(0)} / ${totalMaxMarks.toStringAsFixed(0)}',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 16,
+                                      color: AppTheme.deepBlue,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                '${totalMarks.toStringAsFixed(0)} / ${totalMaxMarks.toStringAsFixed(0)}',
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 16,
-                                  color: AppTheme.deepBlue,
-                                ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Percentage',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${overallPercentage.toStringAsFixed(1)}%',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                      color: overallPercentage >= 75
+                                          ? Colors.green
+                                          : overallPercentage >= 50
+                                              ? Colors.orange
+                                              : Colors.red,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Class Rank',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  Text(
+                                    studentRank > 0 ? '#$studentRank' : 'N/A',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                      color: AppTheme.deepBlue,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -751,26 +800,63 @@ class _DetailedStudentPerformanceScreenState
                           ),
                         ),
                         const SizedBox(height: 12),
-                        ...subjectMarks.entries.map((entry) {
-                          final subject = entry.key;
-                          final marks = entry.value;
+                        ...subjects.map((subject) {
+                          final marks = subjectMarks[subject] ?? 0.0;
+                          final rank = subjectRanks[subject] ?? 0;
+                          final subjectPercentage = maxMarks > 0 ? (marks / maxMarks) * 100 : 0.0;
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  subject,
-                                  style: GoogleFonts.poppins(fontSize: 13),
-                                ),
-                                Text(
-                                  marks.toStringAsFixed(0),
-                                  style: GoogleFonts.poppins(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          subject,
+                                          style: GoogleFonts.poppins(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${subjectPercentage.toStringAsFixed(1)}%',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        '${marks.toStringAsFixed(0)}/$maxMarks',
+                                        style: GoogleFonts.poppins(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      Text(
+                                        rank > 0 ? 'Rank: #$rank' : 'N/A',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 11,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           );
                         }).toList(),

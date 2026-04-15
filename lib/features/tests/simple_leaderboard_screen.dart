@@ -291,8 +291,9 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
       stream: FirebaseFirestore.instance
           .collection('test_marks')
           .doc(_selectedClass.toString())
-          .collection('tests')
-          .where('testKind', isEqualTo: 'series')
+          .collection('test_series')
+          .orderBy('createdAt', descending: true)
+          .limit(1)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -307,104 +308,70 @@ class _SimpleLeaderboardScreenState extends ConsumerState<SimpleLeaderboardScree
           );
         }
 
-        final seriesDocs = snapshot.data!.docs;
-        if (seriesDocs.isEmpty) {
-          return Center(
-            child: Text(
-              'No test series available',
-              style: GoogleFonts.poppins(color: Colors.grey.shade600),
-            ),
-          );
-        }
-
-        final firstSeries = seriesDocs.first;
-        final seriesId = firstSeries.id;
-        final seriesData = firstSeries.data() as Map<String, dynamic>?;
-        final seriesName = seriesData != null ? (seriesData['name']?.toString() ?? 'Series') : 'Series';
+        final seriesDoc = snapshot.data!.docs.first;
+        final seriesData = seriesDoc.data() as Map<String, dynamic>;
+        final testName = seriesData['testName']?.toString() ?? 'Test Series';
+        final seriesId = seriesData['seriesId']?.toString() ?? 'Unknown';
+        final subjects = seriesData['subjects'] as List? ?? [];
+        final overallMarks = seriesData['overallMarks'] as Map<String, dynamic>? ?? {};
+        final overallRanks = seriesData['overallRanks'] as Map<String, dynamic>? ?? {};
+        final overallNotGivenRolls = (seriesData['overallNotGivenRolls'] as List?)?.map((e) => e.toString()).toSet() ?? {};
+        final maxMarks = (seriesData['maxMarks'] as num?)?.toDouble() ?? 100.0;
+        final totalMaxMarks = maxMarks * subjects.length;
 
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
-              .collection('test_marks')
-              .doc(_selectedClass.toString())
-              .collection('tests')
-              .where('seriesId', isEqualTo: seriesId)
+              .collection('users')
+              .where('studentClass', isEqualTo: _selectedClass)
+              .where('role', isEqualTo: 'student')
               .snapshots(),
-          builder: (context, seriesTestsSnapshot) {
-            if (seriesTestsSnapshot.connectionState == ConnectionState.waiting) {
+          builder: (context, studentsSnapshot) {
+            if (studentsSnapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            if (!seriesTestsSnapshot.hasData || seriesTestsSnapshot.data!.docs.isEmpty) {
+            if (!studentsSnapshot.hasData || studentsSnapshot.data!.docs.isEmpty) {
               return Center(
                 child: Text(
-                  'No tests in this series',
+                  'No students found for Class $_selectedClass',
                   style: GoogleFonts.poppins(color: Colors.grey.shade600),
                 ),
               );
             }
 
-            return StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .where('studentClass', isEqualTo: _selectedClass)
-                  .where('role', isEqualTo: 'student')
-                  .snapshots(),
-              builder: (context, studentsSnapshot) {
-                if (studentsSnapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!studentsSnapshot.hasData || studentsSnapshot.data!.docs.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'No students found for Class $_selectedClass',
-                      style: GoogleFonts.poppins(color: Colors.grey.shade600),
-                    ),
-                  );
-                }
+            final studentDataMap = <String, String>{};
+            for (final doc in studentsSnapshot.data!.docs) {
+              final data = doc.data() as Map<String, dynamic>;
+              final roll = (data['rollNumber'] ?? data['rollNo'] ?? data['roll'] ?? '').toString();
+              final name = (data['displayName'] ?? data['name'] ?? 'Unknown').toString();
+              studentDataMap[roll] = name;
+            }
 
-                final studentDataMap = <String, String>{};
-                for (final doc in studentsSnapshot.data!.docs) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final roll = (data['rollNumber'] ?? data['rollNo'] ?? data['roll'] ?? '').toString();
-                  final name = (data['displayName'] ?? data['name'] ?? 'Unknown').toString();
-                  studentDataMap[roll] = name;
-                }
+            final leaderboard = <Map<String, dynamic>>[];
 
-                final seriesStats = <String, double>{};
-                final testCounts = <String, int>{};
+            overallMarks.forEach((roll, mark) {
+              final isNg = overallNotGivenRolls.contains(roll);
+              final percentage = isNg ? 0.0 : ((mark as num?)?.toDouble() ?? 0.0) / totalMaxMarks * 100;
+              final rank = (overallRanks[roll] as num?)?.toInt() ?? 0;
 
-                for (final doc in seriesTestsSnapshot.data!.docs) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final marksByRoll = data['marks'] as Map<String, dynamic>?;
-                  final notGivenRolls = (data['notGivenRolls'] as List<dynamic>?)?.map((e) => e.toString()).toSet() ?? {};
-                  final maxMarks = (data['maxMarks'] as num?)?.toDouble() ?? 100.0;
+              leaderboard.add({
+                'roll': roll,
+                'name': studentDataMap[roll] ?? 'Unknown',
+                'mark': (mark as num?)?.toDouble() ?? 0.0,
+                'percentage': percentage,
+                'rank': rank,
+                'isNg': isNg,
+              });
+            });
 
-                  if (marksByRoll != null) {
-                    marksByRoll.forEach((roll, mark) {
-                      final isNg = notGivenRolls.contains(roll);
-                      if (!isNg) {
-                        final percentage = ((mark as num?)?.toDouble() ?? 0.0) / maxMarks * 100;
-                        seriesStats[roll] = (seriesStats[roll] ?? 0) + percentage;
-                        testCounts[roll] = (testCounts[roll] ?? 0) + 1;
-                      }
-                    });
-                  }
-                }
+            leaderboard.sort((a, b) => (a['rank'] as int).compareTo(b['rank'] as int));
 
-                final leaderboard = <Map<String, dynamic>>[];
-                seriesStats.forEach((roll, totalPercentage) {
-                  final avgPercentage = totalPercentage / (testCounts[roll] ?? 1);
-                  leaderboard.add({
-                    'roll': roll.toString(),
-                    'name': studentDataMap[roll] ?? 'Unknown',
-                    'avgPercentage': avgPercentage,
-                    'testCount': testCounts[roll] ?? 0,
-                  });
-                });
-
-                leaderboard.sort((a, b) => (b['avgPercentage'] as double).compareTo(a['avgPercentage'] as double));
-
-                return _buildOverallLeaderboardList(leaderboard, isStudent, user?.rollNumber, seriesName);
-              },
+            return _buildLeaderboardList(
+              leaderboard,
+              testName,
+              '${subjects.join(', ')} (${subjects.length} subjects)',
+              totalMaxMarks,
+              isStudent,
+              user?.rollNumber,
             );
           },
         );

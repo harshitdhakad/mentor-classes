@@ -944,8 +944,13 @@ class _EnhancedMarksUploadScreenState
                     final clipboardText = await _generateClipboardSummary(currentSubject, marksByRoll, notGivenRolls, ranksByRoll, maxMarks);
                     await Clipboard.setData(ClipboardData(text: clipboardText));
                     if (mounted) {
+                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Copied to clipboard!'), duration: Duration(seconds: 7)),
+                        const SnackBar(
+                          content: Text('Copied to clipboard!'),
+                          duration: Duration(seconds: 7),
+                          behavior: SnackBarBehavior.floating,
+                        ),
                       );
                     }
                   },
@@ -1005,8 +1010,13 @@ class _EnhancedMarksUploadScreenState
                 );
                 await Clipboard.setData(ClipboardData(text: clipboardText));
                 if (mounted) {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Copied to clipboard!'), duration: Duration(seconds: 7)),
+                    const SnackBar(
+                      content: Text('Copied to clipboard!'),
+                      duration: Duration(seconds: 7),
+                      behavior: SnackBarBehavior.floating,
+                    ),
                   );
                 }
               },
@@ -1047,19 +1057,27 @@ class _EnhancedMarksUploadScreenState
     }
 
     try {
-      // Save each selected subject as a separate test document
+      // Collect all subject marks into a single document
+      final allSubjectsData = <String, Map<String, dynamic>>{};
+      final overallMarksByRoll = <String, double>{};
+      final overallNotGivenRolls = <String>{};
+      final subjectWiseRanks = <String, Map<String, int>>{};
+
       for (final subject in _selectedSubjects) {
         final subjectMarks = _seriesMarksBySubject[subject] ?? {};
 
         final marksByRoll = <String, double>{};
-        final notGivenRolls = <String>[];
+        final notGivenRolls = <String>{};
 
         for (final entry in subjectMarks.entries) {
           final isNg = (entry.value['ng'] as bool?) ?? false;
           if (isNg) {
             notGivenRolls.add(entry.key);
+            overallNotGivenRolls.add(entry.key);
           } else {
-            marksByRoll[entry.key] = (entry.value['marks'] as int?)?.toDouble() ?? 0;
+            final marks = (entry.value['marks'] as int?)?.toDouble() ?? 0;
+            marksByRoll[entry.key] = marks;
+            overallMarksByRoll[entry.key] = (overallMarksByRoll[entry.key] ?? 0) + marks;
           }
         }
 
@@ -1079,20 +1097,47 @@ class _EnhancedMarksUploadScreenState
           }
         }
 
-        await repo.saveTestMarksExtended(
-          classLevel: _selectedClass,
-          subject: subject,
-          topic: _topicController.text.isEmpty ? '—' : _topicController.text,
-          testName: '${_testNameController.text} - $subject',
-          testKind: 'series',
-          seriesId: seriesId,
-          date: DateTime.now(),
-          maxMarks: maxMarks.toDouble(),
-          marksByRoll: marksByRoll,
-          notGivenRolls: notGivenRolls,
-          savedBy: 'teacher@mentorclasses.com',
-        );
+        subjectWiseRanks[subject] = ranksByRoll;
+
+        allSubjectsData[subject] = {
+          'marks': marksByRoll,
+          'notGivenRolls': notGivenRolls.toList(),
+          'ranks': ranksByRoll,
+          'maxMarks': maxMarks,
+        };
       }
+
+      // Calculate overall ranks based on total marks across all subjects
+      final overallPercentageByRoll = <String, double>{};
+      final totalMaxMarks = maxMarks * _selectedSubjects.length;
+      for (final entry in overallMarksByRoll.entries) {
+        overallPercentageByRoll[entry.key] = (entry.value / totalMaxMarks) * 100;
+      }
+
+      final overallRanksByRoll = <String, int>{};
+      if (overallPercentageByRoll.isNotEmpty) {
+        final sorted = overallPercentageByRoll.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+
+        for (int i = 0; i < sorted.length; i++) {
+          overallRanksByRoll[sorted[i].key] = i + 1;
+        }
+      }
+
+      // Save as a single document with all subjects
+      await repo.saveTestSeries(
+        classLevel: _selectedClass,
+        testName: _testNameController.text,
+        seriesId: seriesId,
+        date: DateTime.now(),
+        maxMarks: maxMarks.toDouble(),
+        subjects: _selectedSubjects.toList(),
+        subjectData: allSubjectsData,
+        overallMarks: overallMarksByRoll,
+        overallNotGivenRolls: overallNotGivenRolls.toList(),
+        overallRanks: overallRanksByRoll,
+        savedBy: 'teacher@mentorclasses.com',
+      );
 
       if (mounted) {
         // Reset form
@@ -1122,8 +1167,13 @@ class _EnhancedMarksUploadScreenState
                 final overallClipboard = await _generateSeriesClipboardSummary(maxMarks);
                 await Clipboard.setData(ClipboardData(text: overallClipboard));
                 if (mounted) {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Copied to clipboard!'), duration: Duration(seconds: 7)),
+                    const SnackBar(
+                      content: Text('Copied to clipboard!'),
+                      duration: Duration(seconds: 7),
+                      behavior: SnackBarBehavior.floating,
+                    ),
                   );
                 }
               },
