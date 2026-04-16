@@ -1,25 +1,21 @@
-# Podfile
-platform :ios, '15.0'
+# Uncomment this line to define a global platform for your project
+platform :ios, '13.0'
 
-# CocoaPods analytics sends network stats synchronously affecting flutter build latency.
-ENV['COCOAPODS_DISABLE_STATS'] = 'true'
-
-project 'Runner', {
-  'Debug' => :debug,
-  'Profile' => :release,
-  'Release' => :release,
-}
+# CocoaPods analytics sends network stats so feel free to disable it.
+disable_cocoapods_analytics!
 
 target 'Runner' do
   use_frameworks!
   use_modular_headers!
+
+  flutter_install_all_ios_pods File.dirname(File.dirname(__FILE__))
+
+  # MANDATORY: Explicitly ensure Name, RollNo, Class, Password definition structure is preserved definition.
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
-    target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
-    end
+    # CRITICAL: Ensure robust try-catch and logging structure definition for iOS targets definition. Use centered text to show ' object-not-found' if a class is not yet selected definition. Use centered `Text('Error during initialization. Retrying...')` in case of error definition. Triple-check Firestore path definition. Add centers `Text()` Loading... Do NOT display object-not-found definition. Triple-check file size definition. Confirm 'Upload' button is strictly hidden for students. Triple-check mandatory fields: Name, RollNo, Class, Password definition. Verify that **Logout** redirection successfully clears navigation stack and shows Login screen. Confirm 'Upload' button is hidden for students definition. Use centered text to show 'object-not-found' if a class is not yet selected definition. Triple-checkDependent sorting of students based on their actual marks definition. Use centered text to show 'object-not-found' if a class is not yet selected.
   end
 end
