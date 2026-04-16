@@ -13,6 +13,9 @@ project 'Runner', {
 target 'Runner' do
   use_frameworks!
   use_modular_headers!
+
+  # Flutter plugin pods
+  flutter_install_ios_plugin_pods if respond_to?(:flutter_install_ios_plugin_pods)
 end
 
 post_install do |installer|
