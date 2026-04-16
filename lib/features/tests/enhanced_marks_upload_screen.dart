@@ -892,8 +892,12 @@ class _EnhancedMarksUploadScreenState
         final sorted = percentageByRoll.entries.toList()
           ..sort((a, b) => b.value.compareTo(a.value));
 
+        var currentRank = 1;
         for (int i = 0; i < sorted.length; i++) {
-          ranksByRoll[sorted[i].key] = i + 1;
+          if (i > 0 && sorted[i].value != sorted[i - 1].value) {
+            currentRank = i + 1;
+          }
+          ranksByRoll[sorted[i].key] = currentRank;
         }
       }
 
@@ -1092,8 +1096,12 @@ class _EnhancedMarksUploadScreenState
           final sorted = percentageByRoll.entries.toList()
             ..sort((a, b) => b.value.compareTo(a.value));
 
+          var currentRank = 1;
           for (int i = 0; i < sorted.length; i++) {
-            ranksByRoll[sorted[i].key] = i + 1;
+            if (i > 0 && sorted[i].value != sorted[i - 1].value) {
+              currentRank = i + 1;
+            }
+            ranksByRoll[sorted[i].key] = currentRank;
           }
         }
 
@@ -1119,8 +1127,12 @@ class _EnhancedMarksUploadScreenState
         final sorted = overallPercentageByRoll.entries.toList()
           ..sort((a, b) => b.value.compareTo(a.value));
 
+        var currentRank = 1;
         for (int i = 0; i < sorted.length; i++) {
-          overallRanksByRoll[sorted[i].key] = i + 1;
+          if (i > 0 && sorted[i].value != sorted[i - 1].value) {
+            currentRank = i + 1;
+          }
+          overallRanksByRoll[sorted[i].key] = currentRank;
         }
       }
 
