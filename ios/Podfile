@@ -2,7 +2,7 @@
 platform :ios, '13.0'
 
 # CocoaPods analytics sends network stats so feel free to disable it.
-disable_cocoapods_analytics!
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 target 'Runner' do
   use_frameworks!
