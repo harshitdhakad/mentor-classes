@@ -13,9 +13,6 @@ project 'Runner', {
 target 'Runner' do
   use_frameworks!
   use_modular_headers!
-
-  # Flutter pods
-  pod 'Flutter', :path => File.join(File.dirname(File.dirname(__FILE__)), '.symlinks', 'flutter', 'ios')
 end
 
 post_install do |installer|
