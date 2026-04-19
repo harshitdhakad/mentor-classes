@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4 # v3 से v4 में बदला
+        uses: actions/checkout@v4 # v4 ही इस्तेमाल करें
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -25,14 +25,14 @@ jobs:
         run: flutter config --enable-windows-desktop
 
       - name: Build Windows App
+        # यह सुनिश्चित करें कि यह चरण चले, वरना बिल्ड नहीं बनेगा
         run: flutter build windows --release
 
-      - name: Create Zip Archive
-        run: |
-          Compress-Archive -Path build/windows/runner/Release/* -DestinationPath mentor_classes_erp_windows.zip
+      # "Create Zip Archive" चरण यहाँ से हटा दिया गया है
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4 # v3 से v4 में बदला
+        uses: actions/upload-artifact@v4 # v4 ही इस्तेमाल करें
         with:
           name: windows-build
-          path: mentor_classes_erp_windows.zip
+          # सीधे Release फोल्डर का पाथ दें. GitHub इसे अपने आप ज़िप कर देगा.
+          path: build/windows/runner/Release
