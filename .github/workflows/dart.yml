@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # v3 से v4 में बदला
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -32,7 +32,7 @@ jobs:
           Compress-Archive -Path build/windows/runner/Release/* -DestinationPath mentor_classes_erp_windows.zip
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4 # v3 से v4 में बदला
         with:
           name: windows-build
           path: mentor_classes_erp_windows.zip
