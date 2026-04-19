@@ -18,25 +18,26 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Install dependencies
-        run: flutter pub get
+      - name: Clean Build Folder (CRITICAL)
+        # पुरानी बिल्ड फाइलों को हटाकर सब कुछ साफ़ करें
+        run: flutter clean
+
+      - name: Upgrade dependencies (CRITICAL)
+        # सुनिश्चित करें कि सभी पैकेज नए हैं
+        run: flutter pub upgrade
 
       - name: Enable Windows Desktop Support
         run: flutter config --enable-windows-desktop
 
       - name: Build Windows App
-        id: build_windows # इसे एक ID दी ताकि हम बाद में चेक कर सकें
         # Release बिल्ड बनाएं. यह ज़रूरी है कि यह चरण सफ़ल हो.
-        run: flutter build windows --release
-
-      - name: Check Build Folder (DEBUG ONLY)
-        # अगर पिछला चरण सफ़ल हुआ, तो चेक करो कि फोल्डर मौजूद है या नहीं
-        if: success()
+        # हम 'build_windows' कमांड के बाद एक छोटी सी जाँच भी जोड़ रहे हैं.
         run: |
+          flutter build windows --release
           if (Test-Path -Path build/windows/runner/Release) {
             Write-Host "Build folder exists! Proceeding to upload..."
           } else {
-            Write-Error "CRITICAL ERROR: Build folder DOES NOT exist. This should not happen. Flutter build failed silently."
+            Write-Error "CRITICAL ERROR: Build folder DOES NOT exist. Flutter build failed silently."
             exit 1
           }
 
@@ -46,7 +47,7 @@ jobs:
         uses: actions/upload-artifact@v4 # v4 ही इस्तेमाल करें
         with:
           name: windows-build
-          # Release फोल्डर का पूरा पाथ दें
+          # Release फोल्डर का पूरा पाथ दें. GitHub इसे अपने आप ज़िप कर देगा.
           path: build/windows/runner/Release
           # कुछ समय के लिए ज़िप को स्टोर करने दें ताकि अपलोड मिस न हो
           retention-days: 1
