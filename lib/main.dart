@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -23,6 +24,18 @@ const String _adminResetKey = 'admin_reset_timestamp';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Flutter की तरफ से होने वाले एरर को पकड़ें
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    if (kDebugMode) {
+      // अगर हम Debug मोड में हैं, तो टर्मिनल में प्रिंट करें
+      print('=============================================');
+      print('🔴 CRITICAL ERROR DETECTED:');
+      print(details.exception);
+      print('=============================================');
+    }
+  };
 
   // Firebase Initialize - MUST complete before app starts
   try {
