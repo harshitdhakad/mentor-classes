@@ -25,14 +25,28 @@ jobs:
         run: flutter config --enable-windows-desktop
 
       - name: Build Windows App
-        # यह सुनिश्चित करें कि यह चरण चले, वरना बिल्ड नहीं बनेगा
+        id: build_windows # इसे एक ID दी ताकि हम बाद में चेक कर सकें
+        # Release बिल्ड बनाएं. यह ज़रूरी है कि यह चरण सफ़ल हो.
         run: flutter build windows --release
 
-      # "Create Zip Archive" चरण यहाँ से हटा दिया गया है
+      - name: Check Build Folder (DEBUG ONLY)
+        # अगर पिछला चरण सफ़ल हुआ, तो चेक करो कि फोल्डर मौजूद है या नहीं
+        if: success()
+        run: |
+          if (Test-Path -Path build/windows/runner/Release) {
+            Write-Host "Build folder exists! Proceeding to upload..."
+          } else {
+            Write-Error "CRITICAL ERROR: Build folder DOES NOT exist. This should not happen. Flutter build failed silently."
+            exit 1
+          }
 
       - name: Upload Build Artifact
+        # अगर सब कुछ सही रहा, तो अपलोड करो
+        if: success()
         uses: actions/upload-artifact@v4 # v4 ही इस्तेमाल करें
         with:
           name: windows-build
-          # सीधे Release फोल्डर का पाथ दें. GitHub इसे अपने आप ज़िप कर देगा.
+          # Release फोल्डर का पूरा पाथ दें
           path: build/windows/runner/Release
+          # कुछ समय के लिए ज़िप को स्टोर करने दें ताकि अपलोड मिस न हो
+          retention-days: 1
